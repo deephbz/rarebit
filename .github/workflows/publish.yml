@@ -1,0 +1,42 @@
+name: Publish alpha
+run-name: ${{ inputs.run_nonce }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Verify only. Publication requires false.
+        required: true
+        type: boolean
+        default: true
+      tag:
+        description: npm dist-tag for a real publish.
+        required: true
+        type: string
+        default: next
+      run_nonce:
+        description: Unique release receipt nonce.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm test
+      - run: npm run verify:package
+      - run: npm pack --dry-run
+      - name: Publish package
+        if: ${{ !inputs.dry_run }}
+        run: npm publish --provenance --access public --tag "${{ inputs.tag }}"
