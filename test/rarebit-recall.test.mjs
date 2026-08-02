@@ -303,34 +303,118 @@ function extensionHarness({ recallMaterializer, sendUserMessage } = {}) {
   return { commands, handlers, pi, sent, tools };
 }
 
-test("recall sends one self-contained steer envelope in idle and busy contexts", async () => {
+test("recall sends one exact fenced Markdown steer message in idle and busy contexts", async () => {
   const sessionFile = "/tmp/session-recall.jsonl";
   const recall = {
-    conversationPath: "/tmp/hc-rarebit-recall-test/rarebit-conversation.json",
-    detailedPath: "/tmp/hc-rarebit-recall-test/rarebit-evidence.json",
+    conversationPath:
+      "/tmp/Rare bit [会话] (one) **/tick`` and ~~\nnext/rarebit-conversation.json",
+    detailedPath:
+      "/tmp/Detailed [证据] (two) **/tick```` and ~~~\n~~~line-start/rarebit-evidence.json",
     sessionId: "session-recall",
     sessionFile,
     branchLeafId: "stop",
   };
+  const prompt =
+    "\n# Heading-looking request\n- list-looking item\n```text\ninside backticks\n```\n~~~~\ninside tildes\n~~~~\nTrailing request\n";
+  const expectedMessage = `# Rarebit Recall
+
+*Use these local private evidence files to recover historical context for this turn.*
+
+## How to use this bundle
+
+1. Treat **Current request** below as the exact current user request.
+2. Read **Conversation** first for meaning.
+3. Use **Detailed evidence** only for source, Session, branch, or lineage facts.
+4. Answer the current request using this evidence.
+
+## Local private evidence files
+
+**Conversation** — \`rarebit_conversation/v1\`
+
+\`\`\`text
+${recall.conversationPath}
+\`\`\`
+
+**Detailed evidence** — \`rarebit_message_recall/v1\`
+
+~~~~text
+${recall.detailedPath}
+~~~~
+
+## Current request
+
+\`\`\`\`text
+${prompt}
+\`\`\`\``;
+
   for (const busy of [false, true]) {
     const notices = [];
     const harness = extensionHarness({ recallMaterializer: async () => recall });
     const ctx = contextFor(branch(), sessionFile, notices);
     ctx.isIdle = () => !busy;
-    const prompt = "Use \"this\" evidence\\path\nwith  spacing.  ";
     await harness.commands.get("rarebit").handler(`recall ${prompt}`, ctx);
     assert.equal(harness.sent.length, 1);
+    assert.equal(harness.sent[0].args[0], expectedMessage);
     assert.deepEqual(harness.sent[0].args[1], { deliverAs: "steer" });
-    const envelope = JSON.parse(harness.sent[0].args[0]);
-    assert.equal(envelope.request.text, prompt);
-    assert.match(envelope.instructions, /request\.text as the current user request/i);
-    assert.equal(envelope.files.conversation.path, recall.conversationPath);
-    assert.equal(envelope.files.conversation.schema, "rarebit_conversation/v1");
-    assert.equal(envelope.files.detailedEvidence.path, recall.detailedPath);
-    assert.equal(envelope.files.detailedEvidence.schema, "rarebit_message_recall/v1");
-    assert.match(envelope.instructions, /conversation file first/i);
+    assert.equal(expectedMessage.includes(recall.conversationPath), true);
+    assert.equal(expectedMessage.includes(recall.detailedPath), true);
+    assert.equal(expectedMessage.includes(prompt), true);
     assert.match(notices.at(-1).text, /bundle prepared; turn requested/i);
   }
+});
+
+test("long delimiter runs ending at value boundaries use the shortest safe fences", async () => {
+  const pathBackticks = "`".repeat(80);
+  const pathTildes = "~".repeat(47);
+  const conversationPath = `/tmp/long-runs/${pathBackticks}/${pathTildes}`;
+  const requestTildes = "~".repeat(96);
+  const requestBackticks = "`".repeat(63);
+  const request = `Boundary ${requestTildes} ${requestBackticks}`;
+  const harness = extensionHarness({
+    recallMaterializer: async () => ({
+      conversationPath,
+      detailedPath: "/tmp/rarebit-evidence.json",
+      sessionId: "session-recall",
+      sessionFile: "/tmp/session-recall.jsonl",
+      branchLeafId: "stop",
+    }),
+  });
+
+  await harness.commands
+    .get("rarebit")
+    .handler(
+      `recall ${request}`,
+      contextFor(branch(), "/tmp/session-recall.jsonl"),
+    );
+
+  assert.equal(harness.sent.length, 1);
+  const message = harness.sent[0].args[0];
+  const conversationBlock = message.match(
+    /\*\*Conversation\*\* — `rarebit_conversation\/v1`\n\n([`~]+)text\n([^\n]*)\n\1\n\n\*\*Detailed evidence\*\*/,
+  );
+  assert.ok(conversationBlock);
+  assert.equal(conversationBlock[2], conversationPath);
+  assert.equal(conversationBlock[2].endsWith(pathTildes), true);
+  const conversationFence = conversationBlock[1];
+  assert.equal(conversationFence[0], "~");
+  assert.ok(conversationFence.length >= 3);
+  assert.equal(conversationFence.length, pathTildes.length + 1);
+  assert.ok(conversationFence.length > pathTildes.length);
+  assert.ok(conversationFence.length < pathBackticks.length + 1);
+
+  const requestBlock = message.match(
+    /## Current request\n\n([`~]+)text\n([\s\S]*)\n\1$/,
+  );
+  assert.ok(requestBlock);
+  assert.equal(requestBlock[2], request);
+  assert.equal(requestBlock[2].endsWith(requestBackticks), true);
+  const requestFence = requestBlock[1];
+  assert.equal(requestFence[0], "`");
+  assert.ok(requestFence.length >= 3);
+  assert.equal(requestFence.length, requestBackticks.length + 1);
+  assert.ok(requestFence.length > requestBackticks.length);
+  assert.ok(requestFence.length < requestTildes.length + 1);
+  assert.equal(message.endsWith(`${request}\n${requestFence}`), true);
 });
 
 test("single-send failure discards the prepared Recall bundle", async () => {
