@@ -22,6 +22,7 @@ const forbiddenPath = /(^|\/)(\.git|node_modules|\.github|hc-rarebit\.mjs)(\/|$)
 const allowedBare = new Set(["@earendil-works/pi-ai"]);
 const packageFor = (specifier) => specifier.startsWith("@") ? specifier.split("/").slice(0, 2).join("/") : specifier.split("/")[0];
 const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+assert.equal(packageJson.version, "0.1.0-alpha.2", "release version mismatch");
 
 const packed = JSON.parse(npm(["pack", "--json", "--ignore-scripts"]))[0];
 const tarball = join(root, packed.filename);
