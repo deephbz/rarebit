@@ -381,22 +381,42 @@ export default function registerPiRarebit(pi, config = {}) {
     );
   };
 
-  const recallEnvelope = (recall, requestText) =>
-    JSON.stringify({
-      instructions:
-        "Treat request.text as the current user request. Use the two private Rarebit files as historical evidence. Read the conversation file first for meaning. Use detailed evidence only for source, Session, branch, or lineage facts. Answer request.text using this evidence.",
-      files: {
-        conversation: {
-          path: recall.conversationPath,
-          schema: `rarebit_conversation/v${RAREBIT_CONVERSATION_SCHEMA_VERSION}`,
-        },
-        detailedEvidence: {
-          path: recall.detailedPath,
-          schema: `rarebit_message_recall/v${RAREBIT_RECALL_SCHEMA_VERSION}`,
-        },
-      },
-      request: { text: requestText },
-    });
+  const fence = (value) => {
+    const safeLength = (marker) => {
+      const runs = value.match(new RegExp(`${marker}+`, "g")) ?? [];
+      return Math.max(3, ...runs.map((run) => run.length + 1));
+    };
+    const backtickLength = safeLength("`");
+    const tildeLength = safeLength("~");
+    const marker = backtickLength <= tildeLength ? "`" : "~";
+    const length = marker === "`" ? backtickLength : tildeLength;
+    const boundary = marker.repeat(length);
+    return `${boundary}text\n${value}\n${boundary}`;
+  };
+  const recallMessage = (recall, requestText) => `# Rarebit Recall
+
+*Use these local private evidence files to recover historical context for this turn.*
+
+## How to use this bundle
+
+1. Treat **Current request** below as the exact current user request.
+2. Read **Conversation** first for meaning.
+3. Use **Detailed evidence** only for source, Session, branch, or lineage facts.
+4. Answer the current request using this evidence.
+
+## Local private evidence files
+
+**Conversation** — \`rarebit_conversation/v${RAREBIT_CONVERSATION_SCHEMA_VERSION}\`
+
+${fence(recall.conversationPath)}
+
+**Detailed evidence** — \`rarebit_message_recall/v${RAREBIT_RECALL_SCHEMA_VERSION}\`
+
+${fence(recall.detailedPath)}
+
+## Current request
+
+${fence(requestText)}`;
 
   pi.registerCommand?.("rarebit", {
     description: rarebitCommandDescription(),
@@ -432,7 +452,7 @@ export default function registerPiRarebit(pi, config = {}) {
               "the active Pi Session or branch changed during materialization",
             );
           }
-          pi.sendUserMessage(recallEnvelope(recall, prompt), {
+          pi.sendUserMessage(recallMessage(recall, prompt), {
             deliverAs: "steer",
           });
           notify(ctx, "Rarebit recall bundle prepared; turn requested", "info");

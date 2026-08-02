@@ -15,6 +15,55 @@ async function waitFor(predicate, label, timeout = 2_000) {
   }
 }
 
+function expectedRecallMarkdown(conversationPath, detailedPath, request) {
+  return `# Rarebit Recall
+
+*Use these local private evidence files to recover historical context for this turn.*
+
+## How to use this bundle
+
+1. Treat **Current request** below as the exact current user request.
+2. Read **Conversation** first for meaning.
+3. Use **Detailed evidence** only for source, Session, branch, or lineage facts.
+4. Answer the current request using this evidence.
+
+## Local private evidence files
+
+**Conversation** — \`rarebit_conversation/v1\`
+
+\`\`\`text
+${conversationPath}
+\`\`\`
+
+**Detailed evidence** — \`rarebit_message_recall/v1\`
+
+\`\`\`text
+${detailedPath}
+\`\`\`
+
+## Current request
+
+\`\`\`text
+${request}
+\`\`\``;
+}
+
+function conversationPathFrom(message) {
+  const match = message.match(
+    /\*\*Conversation\*\* — `rarebit_conversation\/v1`\n\n```text\n([^\n]*rarebit-conversation\.json)\n```/,
+  );
+  assert.ok(match, "Recall Markdown must contain the fenced conversation path");
+  return match[1];
+}
+
+function detailedPathFrom(message) {
+  const match = message.match(
+    /\*\*Detailed evidence\*\* — `rarebit_message_recall\/v1`\n\n```text\n([^\n]*rarebit-evidence\.json)\n```/,
+  );
+  assert.ok(match, "Recall Markdown must contain the fenced detailed path");
+  return match[1];
+}
+
 const root =
   process.env.PI_CODING_AGENT_ROOT ??
   resolve(
@@ -107,11 +156,20 @@ try {
     .filter((entry) => JSON.stringify(entry).includes("exact idle request"));
   assert.equal(userEntries.length, 1);
   const message = userEntries[0].message ?? userEntries[0];
-  const envelope = JSON.parse(message.content[0].text);
-  recallDirectories.push(dirname(envelope.files.conversation.path));
-  assert.equal(envelope.request.text, "exact idle request");
-  await access(envelope.files.conversation.path);
-  await access(envelope.files.detailedEvidence.path);
+  const idleMessageText = message.content[0].text;
+  const idleConversationPath = conversationPathFrom(idleMessageText);
+  const idleDetailedPath = detailedPathFrom(idleMessageText);
+  assert.equal(
+    idleMessageText,
+    expectedRecallMarkdown(
+      idleConversationPath,
+      idleDetailedPath,
+      "exact idle request",
+    ),
+  );
+  recallDirectories.push(dirname(idleConversationPath));
+  await access(idleConversationPath);
+  await access(idleDetailedPath);
   assert.equal(
     manager
       .getBranch()
@@ -141,29 +199,29 @@ try {
   assert.equal(queued.steering.length, 1);
   assert.equal(queued.followUp?.length ?? 0, 0);
   const queuedMessage = queued.steering[0];
-  const busyEnvelope = JSON.parse(
+  const busyMessageText =
     typeof queuedMessage === "string"
       ? queuedMessage
-      : (queuedMessage.content?.[0]?.text ?? queuedMessage.content),
+      : (queuedMessage.content?.[0]?.text ?? queuedMessage.content);
+  const busyConversationPath = conversationPathFrom(busyMessageText);
+  const busyDetailedPath = detailedPathFrom(busyMessageText);
+  assert.equal(
+    busyMessageText,
+    expectedRecallMarkdown(
+      busyConversationPath,
+      busyDetailedPath,
+      "exact busy request",
+    ),
   );
-  recallDirectories.push(dirname(busyEnvelope.files.conversation.path));
-  await access(busyEnvelope.files.conversation.path);
-  await access(busyEnvelope.files.detailedEvidence.path);
-  assert.equal(busyEnvelope.request.text, "exact busy request");
+  recallDirectories.push(dirname(busyConversationPath));
+  await access(busyConversationPath);
+  await access(busyDetailedPath);
   releaseBusy();
   await busyRun;
   await session.agent.waitForIdle();
   assert.equal(provider.state.callCount, 4);
   const recallCount = (texts) =>
-    texts
-      .map((text) => {
-        try {
-          return JSON.parse(text);
-        } catch {
-          return null;
-        }
-      })
-      .filter((value) => value?.request?.text === "exact busy request").length;
+    texts.filter((text) => text === busyMessageText).length;
   const fourthUserTexts = (fourthContext?.messages ?? [])
     .filter((message) => message.role === "user")
     .map((message) => message.content?.[0]?.text ?? "");
@@ -184,7 +242,7 @@ try {
     false,
   );
   console.log(
-    `Pi ${packageJson.version} Recall E2E passed: idle and busy steer envelopes; no custom receipt.`,
+    `Pi ${packageJson.version} Recall E2E passed: idle and busy steer Markdown messages; no custom receipt.`,
   );
 } finally {
   releaseBusy?.();

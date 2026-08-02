@@ -101,8 +101,8 @@ remain until you remove them. Session JSONL retention is controlled by Pi.
 
 Run `/rarebit recall <prompt>` in a Pi Session. Rarebit writes the exact active
 branch selection to two private files: a conversation view and detailed
-lineage evidence. It then sends one atomic user message. The message contains
-your exact request and absolute pointers to both files.
+lineage evidence. It then sends one atomic, human-readable Markdown user
+message containing your exact request and absolute pointers to both files.
 
 When Pi is idle, that message starts one turn. When Pi is busy, it queues one
 steering message. Recall does not send a second follow-up, add a custom Session
@@ -110,7 +110,7 @@ entry, or create a durable Recall receipt.
 
 The temporary directory is mode 0700 and its JSON files are mode 0600. The
 files remain after the request so Pi can read them; delete the directory after
-the turn no longer needs it. Both files and the persisted Pi envelope are
+the turn no longer needs it. Both files and the persisted Pi message are
 sensitive. Do not put their paths or content in a ticket.
 
 ## Update, uninstall, and rollback
