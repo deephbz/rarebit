@@ -10,12 +10,22 @@ and visual language can change. It is not a Task, Project, runtime, priority,
 attention, or delivery authority. Native Pi Session JSONL remains the evidence
 authority.
 
+Alpha.4 is a new artifact with a sanitized current source lineage. Product
+capability is unchanged from the alpha.3 cutoff tree `db7d388`. The old tag
+graphs remain public and are not privacy-clean. All existing alpha.1, alpha.2,
+and alpha.3 tags, releases, and npm artifacts remain immutable (there is no
+alpha.1 GitHub Release). Alpha.3 remains the original readable-Recall release.
+Intended npm routing after publication is `next=alpha.4` and `latest=alpha.1`.
+The source-only machine-readable candidate derivation and vendored-scanner
+binding is [`release/privacy-lineage.v1.json`](release/privacy-lineage.v1.json).
+It is excluded from npm and does not claim publication completion.
+
 ## Install
 
 Use Node 22 or later and Pi 0.83 or later. Install it in Pi from npm:
 
 ```sh
-pi install npm:@hypercarrier/rarebit@0.1.0-alpha.3
+pi install npm:@hypercarrier/rarebit@0.1.0-alpha.4
 pi list
 ```
 
@@ -34,7 +44,7 @@ To use the CLI in a normal Node project, install it and invoke the local bin
 with npm:
 
 ```sh
-npm install @hypercarrier/rarebit@0.1.0-alpha.3
+npm install @hypercarrier/rarebit@0.1.0-alpha.4
 npm exec -- rarebit --help
 ```
 
@@ -118,10 +128,14 @@ sensitive. Do not put their paths or content in a ticket.
 Pin alpha versions for reproducible installs:
 
 ```sh
-pi install npm:@hypercarrier/rarebit@0.1.0-alpha.3
-pi update npm:@hypercarrier/rarebit
+pi install npm:@hypercarrier/rarebit@0.1.0-alpha.4
 pi remove npm:@hypercarrier/rarebit
 ```
+
+The exact-version install also moves an existing Rarebit npm installation to
+that pin. Pi skips versioned npm sources during package updates. Do not use an
+unpinned source for alpha.4 recovery: unpinned npm resolution follows the
+retained `latest`, which remains alpha.1.
 
 To roll back, reinstall a known version with `pi install npm:@hypercarrier/rarebit@<version>`.
 Removal stops package loading. It does not alter Pi Session JSONL or delete

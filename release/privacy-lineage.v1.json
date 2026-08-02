@@ -1,0 +1,104 @@
+{
+  "schema": "rarebit.privacy-lineage",
+  "schema_version": 1,
+  "state": "candidate",
+  "component": {
+    "name": "@hypercarrier/rarebit",
+    "version": "0.1.0-alpha.4"
+  },
+  "policy": "sanitized_current_lineage_with_retained_legacy_refs",
+  "scope": {
+    "records": "source_lineage_derivation_and_candidate_gate_results",
+    "publication_completion_claimed": false,
+    "detected_values_recorded": false
+  },
+  "source_cutoff": {
+    "release": "0.1.0-alpha.3",
+    "commit": "361ffa444029d75a7edbf7fc01ac41d8765f039b",
+    "tree": "db7d388ec449af11c2054cf460931118f70c055b"
+  },
+  "sanitized_root": {
+    "commit": "3620e9b0ddcdc4cb88771f8e16d5e88a3679480b",
+    "tree": "db7d388ec449af11c2054cf460931118f70c055b"
+  },
+  "scanner": {
+    "name": "git-privacy-scan",
+    "public_source_path": "release/tools/git-privacy-scan.py",
+    "git_blob": "887213d5d6aac3187a1631c6d985b1b0ea1385ec",
+    "sha256": "7808ae1f0a5039bd939236d17db9574f2249043a8596ca85f8f6c1270d9a2381",
+    "output_contract": "value_free"
+  },
+  "gates": {
+    "head_history": {
+      "semantic_args": [
+        "--ref",
+        "HEAD",
+        "history"
+      ],
+      "exit_code": 0,
+      "result": "pass"
+    },
+    "index": {
+      "semantic_args": [
+        "index"
+      ],
+      "exit_code": 0,
+      "result": "pass"
+    },
+    "sanitized_range": {
+      "semantic_args": [
+        "--ref",
+        "HEAD",
+        "--base",
+        "3620e9b0ddcdc4cb88771f8e16d5e88a3679480b",
+        "range"
+      ],
+      "exit_code": 0,
+      "result": "pass"
+    },
+    "all_refs": {
+      "semantic_args": [
+        "history"
+      ],
+      "exit_code": 1,
+      "result": "expected_legacy_ref_rejection",
+      "finding_values_recorded": false
+    }
+  },
+  "identity_policy": {
+    "profile": "managed_public_noreply",
+    "author_and_committer_required": true,
+    "timezone": "UTC",
+    "offset": "+00:00",
+    "result": "pass"
+  },
+  "legacy_refs": {
+    "tag_policy": "immutable",
+    "tags": [
+      "v0.1.0-alpha.1",
+      "v0.1.0-alpha.2",
+      "v0.1.0-alpha.3"
+    ],
+    "graphs_remain_public": true,
+    "privacy_clean": false,
+    "disclosure": "known_legacy_disclosure"
+  },
+  "npm_routing": {
+    "state": "intended_not_applied",
+    "next": "0.1.0-alpha.4",
+    "latest": "0.1.0-alpha.1"
+  },
+  "publication_completion": {
+    "state": "not_complete",
+    "remote_lease_tag_npm_provenance_owner": "later_public_release_evidence",
+    "compatibility_and_final_receipt_owner": "HyperCarrier",
+    "pending": [
+      "remote_lease",
+      "tag",
+      "npm_publication",
+      "provenance",
+      "compatibility",
+      "final_receipt"
+    ]
+  }
+}

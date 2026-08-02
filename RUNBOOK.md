@@ -1,13 +1,21 @@
 # Rarebit runbook
 
+This runbook applies to `0.1.0-alpha.4`. Operational behavior, including
+readable Markdown Recall, is unchanged from alpha.3; see [CHANGELOG.md](CHANGELOG.md)
+for sanitized-lineage and release-routing details.
+
 Set `rarebit.model` in global Pi settings or in a trusted Project's
 `.pi/settings.json`. It must be `provider/model` or an object with `provider`
 and `id`. Rarebit fails closed when it is missing or invalid. It does not use
 Pi's interactive `defaultModel`.
 
-Run `pi update npm:@hypercarrier/rarebit` to update an npm installation. Run
-`pi remove npm:@hypercarrier/rarebit` to stop loading it. These commands do not
-modify native Sessions or remove Rarebit retained data.
+Install or move this package to the alpha.4 pin with
+`pi install npm:@hypercarrier/rarebit@0.1.0-alpha.4`. Pi treats versioned npm
+sources as pinned, so package update commands skip it. Do not use an unpinned
+source for alpha.4 recovery: unpinned npm resolution follows the retained
+`latest`, which remains alpha.1. Run `pi remove npm:@hypercarrier/rarebit` to
+stop loading it. These commands do not modify native Sessions or remove Rarebit
+retained data.
 
 Inspect derived state without treating it as a transcript:
 
