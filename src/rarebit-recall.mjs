@@ -123,7 +123,7 @@ async function writePrivateJson(path, document) {
 
 /**
  * Materialize an exact, active-branch Rarebit evidence projection for one
- * human-triggered recall. The native Session remains authority; this bundle is
+ * one-off Recall. The native Session remains authority; this bundle is
  * an ephemeral, private transport artifact and is never written to the repo.
  */
 export async function materializeRarebitRecall(

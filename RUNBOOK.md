@@ -27,12 +27,10 @@ Automatic summaries require both the configured minimum estimated length and
 maximum selected-prose ratio. `npm exec -- rarebit summarize --force` and
 `/rarebit summarize` are explicit requests. The receipt records input coverage.
 
-Selected `role:user` evidence is a user message. It does not verify a human,
-owner, or producer identity. Historical `owner_request` protocol values name a
-lifecycle boundary; they do not establish message authorship.
+Selected evidence contains user messages.
 
-Recall bundles are private OS-temp files with selected content. The one
-`role:user` envelope contains the exact request and both private file pointers.
-When Pi is idle it starts one turn. When Pi is busy it queues one steering
-message. Delete the bundle after that turn no longer needs it. Do not put its
-paths or contents in a ticket.
+Recall bundles are private OS-temp files with selected content. One user
+message contains the exact request and both private file pointers. When Pi is
+idle it starts one turn. When Pi is busy it queues one steering message. Delete
+the bundle after that turn no longer needs it. Do not put its paths or contents
+in a ticket.

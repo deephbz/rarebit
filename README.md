@@ -1,10 +1,9 @@
 # Rarebit
 
 `@hypercarrier/rarebit` recovers decision-bearing conversational evidence from
-one persisted Pi Session. It deterministically selects readable `role:user`
-messages and assistant continuation or stop prose on the active branch. It
-excludes tool payloads, tool results, and hidden reasoning. A `role:user`
-message does not verify a human, owner, or producer identity.
+one persisted Pi Session. It deterministically selects readable user messages
+and assistant continuation or stop prose on the active branch. It excludes tool
+payloads, tool results, and hidden reasoning.
 
 Rarebit is public alpha software. Its CLI output, exports, sidecar protocol,
 and visual language can change. It is not a Task, Project, runtime, priority,
@@ -102,13 +101,12 @@ remain until you remove them. Session JSONL retention is controlled by Pi.
 
 Run `/rarebit recall <prompt>` in a Pi Session. Rarebit writes the exact active
 branch selection to two private files: a conversation view and detailed
-lineage evidence. It then sends one atomic `role:user` envelope. The envelope
-contains your exact request and absolute pointers to both files.
+lineage evidence. It then sends one atomic user message. The message contains
+your exact request and absolute pointers to both files.
 
-When Pi is idle, that envelope starts one turn. When Pi is busy, it queues one
+When Pi is idle, that message starts one turn. When Pi is busy, it queues one
 steering message. Recall does not send a second follow-up, add a custom Session
-entry, or create a durable Recall receipt. A `role:user` envelope does not
-verify a human, owner, or producer identity.
+entry, or create a durable Recall receipt.
 
 The temporary directory is mode 0700 and its JSON files are mode 0600. The
 files remain after the request so Pi can read them; delete the directory after
