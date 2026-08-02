@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.3 — 2026-08-02
+
+- Recall now sends one human-readable Markdown user message with the exact request and local private JSON evidence references. Idle and busy steer behavior remains unchanged, and JSON files remain machine authority.
+
 ## 0.1.0-alpha.2 — 2026-08-02
 
 First promoted OIDC prerelease candidate. This corrective release has no

@@ -15,7 +15,7 @@ authority.
 Use Node 22 or later and Pi 0.83 or later. Install it in Pi from npm:
 
 ```sh
-pi install npm:@hypercarrier/rarebit@0.1.0-alpha.2
+pi install npm:@hypercarrier/rarebit@0.1.0-alpha.3
 pi list
 ```
 
@@ -34,7 +34,7 @@ To use the CLI in a normal Node project, install it and invoke the local bin
 with npm:
 
 ```sh
-npm install @hypercarrier/rarebit@0.1.0-alpha.2
+npm install @hypercarrier/rarebit@0.1.0-alpha.3
 npm exec -- rarebit --help
 ```
 
@@ -118,7 +118,7 @@ sensitive. Do not put their paths or content in a ticket.
 Pin alpha versions for reproducible installs:
 
 ```sh
-pi install npm:@hypercarrier/rarebit@0.1.0-alpha.2
+pi install npm:@hypercarrier/rarebit@0.1.0-alpha.3
 pi update npm:@hypercarrier/rarebit
 pi remove npm:@hypercarrier/rarebit
 ```
