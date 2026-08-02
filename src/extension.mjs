@@ -315,7 +315,7 @@ export default function registerPiRarebit(pi, config = {}) {
     )
       notify(
         ctx,
-        "Rarebit cannot generate a title: persisted owner-message evidence is unavailable",
+        "Rarebit cannot generate a title: persisted user-message evidence is unavailable",
         "warning",
       );
     return result;

@@ -415,6 +415,34 @@ test("extension auto-title applies once to the exact active Session and writes o
   );
 });
 
+test("manual title warning uses user-message evidence wording", async () => {
+  const handlers = new Map();
+  const commands = new Map();
+  const notices = [];
+  const pi = {
+    on: (event, handler) => handlers.set(event, handler),
+    registerCommand: (name, command) => commands.set(name, command),
+    getSessionName: () => null,
+    setSessionName() {},
+  };
+  registerPiRarebit(pi, {
+    model: { provider: "test-provider", id: "cheap-model" },
+  });
+  const ctx = {
+    ...contextFor([], "/tmp/rarebit-title-empty.jsonl"),
+    hasUI: true,
+    ui: { notify: (text, level) => notices.push({ text, level }) },
+  };
+  handlers.get("session_start")({}, ctx);
+  await commands.get("rarebit").handler("title", ctx);
+  await waitFor(
+    () => notices.length > 0,
+    "manual title warning was not reported",
+  );
+  assert.match(notices.at(-1).text, /persisted user-message evidence/i);
+  assert.doesNotMatch(notices.at(-1).text, /owner-message/i);
+});
+
 test("manual generated title after resume uses the earliest persisted branch user as labelled fallback", async () => {
   const root = await mkdtemp(join(tmpdir(), "hc-rarebit-resume-title-"));
   const sessionFile = join(root, "session.jsonl");
