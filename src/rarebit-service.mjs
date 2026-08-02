@@ -303,7 +303,7 @@ export async function processRarebitSummary(ctx, config = {}) {
       rarebitCount: selection.occurrences.length,
       model: modelResolution.model,
       estimatedInputTokens: Math.ceil(prompt.length / 4),
-      inputTokenEstimateMethod: "utf16_chars_div_4_ceil",
+      inputTokenEstimateMethod: "utf16_chars_div_4_ceil", // gitleaks:allow; named estimate method, not a credential
     });
     const client =
       config.modelClient ?? (await createPiRarebitModelClient(ctx, config));

@@ -1,26 +1,43 @@
 {
-  "name": "@hypercarrier/hc-rarebit",
-  "version": "0.1.0",
+  "name": "@hypercarrier/rarebit",
+  "version": "0.1.0-alpha.1",
+  "description": "Sparse, provenance-bearing conversational evidence recovery for Pi sessions.",
   "license": "MIT",
-  "description": "A narrow, provenance-bearing complete Rarebit projection for Pi sessions.",
+  "author": "HyperCarrier contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deephbz/rarebit.git"
+  },
+  "homepage": "https://github.com/deephbz/rarebit#readme",
+  "bugs": {
+    "url": "https://github.com/deephbz/rarebit/issues"
+  },
   "keywords": [
-    "pi-package"
+    "pi-package",
+    "rarebit",
+    "pi",
+    "session"
   ],
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "types": "./src/types.d.ts",
+  "bin": {
+    "rarebit": "./bin/rarebit.mjs"
+  },
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "test:e2e:summary-cache": "node scripts/e2e-summary-cache.mjs",
-    "test:e2e:recall": "node scripts/e2e-recall-pi083.mjs"
+    "test:e2e:recall": "node scripts/e2e-recall-pi083.mjs",
+    "verify:package": "node scripts/verify-package.mjs"
   },
-  "bin": {
-    "hc-rarebit": "./bin/hc-rarebit.mjs"
-  },
-  "dependencies": {
-    "@earendil-works/pi-ai": "0.80.10"
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*"
   },
   "devDependencies": {
-    "ajv": "^6.15.0"
+    "ajv": "^6.15.0",
+    "typescript": "^5.9.3"
   },
   "pi": {
     "extensions": [
@@ -32,20 +49,48 @@
       "types": "./src/types.d.ts",
       "import": "./src/index.mjs"
     },
-    "./core": "./src/rarebit-core.mjs",
-    "./session": "./src/rarebit-session.mjs",
-    "./service": "./src/rarebit-service.mjs",
-    "./artifact-state": "./src/rarebit-artifact-state.mjs",
-    "./visual-language": "./src/rarebit-visual-language.mjs",
-    "./extension": "./src/extension.mjs",
+    "./core": {
+      "types": "./src/types.d.ts",
+      "import": "./src/rarebit-core.mjs"
+    },
+    "./session": {
+      "types": "./src/types.d.ts",
+      "import": "./src/rarebit-session.mjs"
+    },
+    "./service": {
+      "types": "./src/types.d.ts",
+      "import": "./src/rarebit-service.mjs"
+    },
+    "./artifact-state": {
+      "types": "./src/types.d.ts",
+      "import": "./src/rarebit-artifact-state.mjs"
+    },
+    "./visual-language": {
+      "types": "./src/types.d.ts",
+      "import": "./src/rarebit-visual-language.mjs"
+    },
+    "./extension": {
+      "types": "./src/types.d.ts",
+      "import": "./src/extension.mjs"
+    },
     "./types": "./src/types.d.ts"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "files": [
-    "bin",
+    "bin/rarebit.mjs",
     "src",
     "schemas",
+    "scripts",
+    "test",
     "README.md",
     "RUNBOOK.md",
-    "VISUAL-LANGUAGE.md"
+    "VISUAL-LANGUAGE.md",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "SECURITY.md"
   ]
 }

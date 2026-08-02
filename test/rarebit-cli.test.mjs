@@ -153,7 +153,7 @@ test("title generates only a proposal with an explicit date prefix and never mut
 
 test("binary requires JSON and query never leaks an absolute source path", async () => {
   const file = await fixture();
-  const cli = new URL("../bin/hc-rarebit.mjs", import.meta.url);
+  const cli = new URL("../bin/rarebit.mjs", import.meta.url);
   const output = spawnSync(
     process.execPath,
     [cli.pathname, "query", "--session", file, "--json"],
