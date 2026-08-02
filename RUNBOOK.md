@@ -12,8 +12,8 @@ modify native Sessions or remove Rarebit retained data.
 Inspect derived state without treating it as a transcript:
 
 ```sh
-rarebit query --session <exact-session.jsonl> --json
-rarebit extract --session <exact-session.jsonl> --json
+npm exec -- rarebit query --session <exact-session.jsonl> --json
+npm exec -- rarebit extract --session <exact-session.jsonl> --json
 ```
 
 The current protocol reads only `materializations-v4`. A `rarebit_head` is the
@@ -24,9 +24,15 @@ that Session is alive. Then remove only that lock. Age alone does not authorize
 removal.
 
 Automatic summaries require both the configured minimum estimated length and
-maximum selected-prose ratio. `rarebit summarize --force` and `/rarebit
-summarize` are explicit owner requests. The receipt records input coverage.
+maximum selected-prose ratio. `npm exec -- rarebit summarize --force` and
+`/rarebit summarize` are explicit requests. The receipt records input coverage.
 
-Recall bundles are private OS-temp files with selected content. Delete them
-when their one-off Recall request is complete. Do not put their paths or
-contents in a ticket.
+Selected `role:user` evidence is a user message. It does not verify a human,
+owner, or producer identity. Historical `owner_request` protocol values name a
+lifecycle boundary; they do not establish message authorship.
+
+Recall bundles are private OS-temp files with selected content. The one
+`role:user` envelope contains the exact request and both private file pointers.
+When Pi is idle it starts one turn. When Pi is busy it queues one steering
+message. Delete the bundle after that turn no longer needs it. Do not put its
+paths or contents in a ticket.

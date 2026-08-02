@@ -160,6 +160,12 @@ test("binary requires JSON and query never leaks an absolute source path", async
     { encoding: "utf8" },
   );
   assert.equal(output.status, 0, output.stderr);
+  const help = spawnSync(process.execPath, [cli.pathname, "--help"], {
+    encoding: "utf8",
+  });
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /rarebit query/);
+  assert.doesNotMatch(help.stdout, /hc-rarebit/);
   assert.equal(output.stdout.includes(file), false);
   assert.equal(JSON.parse(output.stdout).rarebitCount, 2);
   assert.throws(

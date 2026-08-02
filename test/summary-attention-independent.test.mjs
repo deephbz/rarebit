@@ -161,9 +161,10 @@ test("settled prompt makes completion and unfinished judgments only from visible
   });
   assert.match(
     ownerRequestPrompt,
-    /newly persisted owner's current intention/i,
+    /newly persisted role:user message/i,
   );
   assert.match(ownerRequestPrompt, /change it makes to active requests/i);
+  assert.match(ownerRequestPrompt, /does not verify producer or human identity/i);
   assert.match(ownerRequestPrompt, /Tool-call inputs, tool results/i);
   assert.match(
     ownerRequestPrompt,

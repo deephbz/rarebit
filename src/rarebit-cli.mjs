@@ -14,10 +14,10 @@ import {
 } from "./rarebit-session.mjs";
 
 export const RAREBIT_CLI_USAGE = `Usage:
-  hc-rarebit query --session <exact-path-or-id> --json
-  hc-rarebit extract --session <exact-path-or-id> --json
-  hc-rarebit summarize --session <exact-path-or-id> [--force] [--model-command <executable> [--model-arg <arg>]] --json
-  hc-rarebit title --session <exact-path-or-id> [--date YYYY-MM-DD] [--model-command <executable> [--model-arg <arg>]] --json
+  rarebit query --session <exact-path-or-id> --json
+  rarebit extract --session <exact-path-or-id> --json
+  rarebit summarize --session <exact-path-or-id> [--force] [--model-command <executable> [--model-arg <arg>]] --json
+  rarebit title --session <exact-path-or-id> [--date YYYY-MM-DD] [--model-command <executable> [--model-arg <arg>]] --json
 
 Normal summarize/title resolve rarebit.model from Pi settings. The optional model-command
 adapter receives one prompt on stdin and must write only model text to stdout.

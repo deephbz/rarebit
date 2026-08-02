@@ -1,9 +1,10 @@
 # Rarebit
 
 `@hypercarrier/rarebit` recovers decision-bearing conversational evidence from
-one persisted Pi Session. It deterministically selects readable user prose and
-assistant continuation or stop prose on the active branch. It excludes tool
-payloads, tool results, and hidden reasoning.
+one persisted Pi Session. It deterministically selects readable `role:user`
+messages and assistant continuation or stop prose on the active branch. It
+excludes tool payloads, tool results, and hidden reasoning. A `role:user`
+message does not verify a human, owner, or producer identity.
 
 Rarebit is public alpha software. Its CLI output, exports, sidecar protocol,
 and visual language can change. It is not a Task, Project, runtime, priority,
@@ -30,10 +31,12 @@ The package imports Pi's bundled `@earendil-works/pi-ai` as a peer dependency.
 Do not install or bundle a second Pi core. Pi packages execute with your user
 permissions, so review source before installation.
 
-To use only the CLI in a Node project:
+To use the CLI in a normal Node project, install it and invoke the local bin
+with npm:
 
 ```sh
 npm install @hypercarrier/rarebit@0.1.0-alpha.1
+npm exec -- rarebit --help
 ```
 
 ## First query and extract
@@ -42,8 +45,8 @@ Give the CLI an exact Session JSONL path or supported Pi Session identifier.
 `query` returns metadata only. `extract` returns selected raw Session prose.
 
 ```sh
-rarebit query --session /absolute/path/to/session.jsonl --json
-rarebit extract --session /absolute/path/to/session.jsonl --json
+npm exec -- rarebit query --session /absolute/path/to/session.jsonl --json
+npm exec -- rarebit extract --session /absolute/path/to/session.jsonl --json
 ```
 
 The Pi extension adds `/rarebit` controls after installation. It has `status`,
@@ -69,14 +72,14 @@ project's `.pi/settings.json`:
 Then request explicit model work when you want it:
 
 ```sh
-rarebit summarize --session /absolute/path/to/session.jsonl --json --force
-rarebit title --session /absolute/path/to/session.jsonl --json
+npm exec -- rarebit summarize --session /absolute/path/to/session.jsonl --json --force
+npm exec -- rarebit title --session /absolute/path/to/session.jsonl --json
 ```
 
 A Summary is a lossy assessment of an identified selection. It can report only
 Session-scoped appearance, not completed Project or Task work. A Title is a
 mutable label proposal, not Session identity. Automatic Summary work runs only
-at persisted owner-input or settled-agent boundaries and only when its policy
+at persisted direct-input or settled-agent boundaries and only when its policy
 permits it.
 
 ## Privacy, local data, and provider egress
@@ -95,11 +98,22 @@ leases live below `~/.pi/agent/rarebit/jobs-v4/`. These directories use mode
 selected prose, prompt, provider response body, headers, or credentials. They
 remain until you remove them. Session JSONL retention is controlled by Pi.
 
-`/rarebit recall <prompt>` is human-only. It writes the complete selected
-content to a new OS temporary directory, then sends one Pi user message with
-absolute paths to those files. The directory is mode 0700 and its JSON files
-are mode 0600, but temporary Recall files and the persisted Pi message are
-sensitive. Remove them when you no longer need them.
+## First Recall
+
+Run `/rarebit recall <prompt>` in a Pi Session. Rarebit writes the exact active
+branch selection to two private files: a conversation view and detailed
+lineage evidence. It then sends one atomic `role:user` envelope. The envelope
+contains your exact request and absolute pointers to both files.
+
+When Pi is idle, that envelope starts one turn. When Pi is busy, it queues one
+steering message. Recall does not send a second follow-up, add a custom Session
+entry, or create a durable Recall receipt. A `role:user` envelope does not
+verify a human, owner, or producer identity.
+
+The temporary directory is mode 0700 and its JSON files are mode 0600. The
+files remain after the request so Pi can read them; delete the directory after
+the turn no longer needs it. Both files and the persisted Pi envelope are
+sensitive. Do not put their paths or content in a ticket.
 
 ## Update, uninstall, and rollback
 

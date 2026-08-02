@@ -67,6 +67,8 @@ try {
   const cli = join(temp, "node_modules", "@hypercarrier", "rarebit", "bin", "rarebit.mjs");
   const help = spawnSync(process.execPath, [cli, "--help"], { encoding: "utf8" });
   assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /Usage:\s*\n\s+rarebit query/);
+  assert.doesNotMatch(help.stdout, /hc-rarebit/);
   for (const command of ["query", "extract"]) {
     const result = spawnSync(process.execPath, [cli, command, "--session", session, "--json"], { encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
