@@ -197,7 +197,7 @@ test("Summary normalization accepts explicit uncertainty and conflicting evidenc
   }
 });
 
-test("Pi Summary model calls forward the stable Session cache identity", async () => {
+test("Pi Summary fallback model calls forward the stable Session cache identity", async () => {
   let receivedOptions;
   const client = await createPiRarebitModelClient(
     {
@@ -218,6 +218,40 @@ test("Pi Summary model calls forward the stable Session cache identity", async (
   );
   await client.complete({ prompt: "prompt", cacheSessionId: "session-cache-1" });
   assert.equal(receivedOptions.sessionId, "session-cache-1");
+});
+
+test("Pi Summary uses the current model registry and preserves null header deletions", async () => {
+  let received;
+  const client = await createPiRarebitModelClient(
+    {
+      modelRegistry: {
+        find: () => ({ provider: "runtime", id: "registered-model" }),
+        getApiKeyAndHeaders: async () => ({
+          ok: true,
+          apiKey: "test-key",
+          headers: { "x-retained": "value", "x-delete": null },
+        }),
+        complete: async function (model, context, options) {
+          assert.equal(typeof this.find, "function");
+          received = { model, context, options };
+          return { text: "ok" };
+        },
+      },
+    },
+    {
+      model: { provider: "runtime", id: "registered-model" },
+      piAi: { complete: async () => { throw new Error("fallback used"); } },
+    },
+  );
+  await client.complete({ prompt: "prompt", cacheSessionId: "session-cache-2" });
+  assert.equal(received.model.provider, "runtime");
+  assert.equal(received.model.id, "registered-model");
+  assert.equal(received.context.messages[0].content[0].text, "prompt");
+  assert.deepEqual(received.options.headers, {
+    "x-retained": "value",
+    "x-delete": null,
+  });
+  assert.equal(received.options.sessionId, "session-cache-2");
 });
 
 test("job identity varies with an operation's semantic inputs, not raw source path", () => {

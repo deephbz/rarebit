@@ -52,10 +52,17 @@ export function resolveRarebitModelConfiguration(config = {}) {
 }
 
 export async function createPiRarebitModelClient(ctx, config = {}) {
-  const { complete, getModel } = config.piAi ?? {};
-  if (typeof complete !== "function")
+  const { complete: fallbackComplete, getModel } = config.piAi ?? {};
+  const runtimeComplete =
+    typeof ctx?.modelRegistry?.complete === "function"
+      ? ctx.modelRegistry.complete.bind(ctx.modelRegistry)
+      : undefined;
+  if (
+    typeof runtimeComplete !== "function" &&
+    typeof fallbackComplete !== "function"
+  )
     throw new Error(
-      "Pi AI contract is unavailable; load the Rarebit Pi extension or provide modelClient/piAi",
+      "Pi model completion is unavailable; load the Rarebit Pi extension or provide modelClient/piAi",
     );
   const resolution = resolveRarebitModelConfiguration(config);
   if (!resolution.ok) throw new Error(resolution.error);
@@ -79,7 +86,8 @@ export async function createPiRarebitModelClient(ctx, config = {}) {
     );
   return {
     async complete(request) {
-      return complete(
+      const completion = runtimeComplete ?? fallbackComplete;
+      return completion(
         model,
         {
           messages: [
