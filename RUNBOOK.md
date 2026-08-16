@@ -1,8 +1,8 @@
 # Rarebit runbook
 
-This runbook applies to `0.1.0-alpha.5`. This candidate repairs Pi 0.84.2
-Summary calls by using the active Pi model runtime. The injected Pi AI completion
-path remains the fallback for hosts without that runtime registry. See
+This runbook applies to `0.1.0-alpha.5`. This release repairs Pi 0.84.2 Summary
+calls by using the active Pi model runtime. The injected Pi AI completion path
+remains the fallback for hosts without that runtime registry. See
 [CHANGELOG.md](CHANGELOG.md) for release details.
 
 Set `rarebit.model` in global Pi settings or in a trusted Project's

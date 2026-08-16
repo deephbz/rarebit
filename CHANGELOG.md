@@ -7,8 +7,9 @@
 - Declare the unbounded Pi AI peer range from Pi 0.83.0. The release gate runs
   Recall against Pi 0.83.0 and Pi 0.84.2.
 
-This is an unpublished local release candidate. Intended npm routing after
-publication is `next=alpha.5` and `latest=alpha.4`.
+Published through GitHub Actions OIDC to npm `next`; `latest` remains alpha.4.
+The exact source, package, registry, provenance, and GitHub prerelease evidence
+is in the [alpha.5 release receipt](release/v0.1.0-alpha.5-release-receipt.md).
 
 ## 0.1.0-alpha.4 — 2026-08-02
 

@@ -10,15 +10,15 @@ and visual language can change. It is not a Task, Project, runtime, priority,
 attention, or delivery authority. Native Pi Session JSONL remains the evidence
 authority.
 
-Alpha.5 is an unpublished local candidate that repairs Pi 0.84.2 Summary
-calls by using the active Pi model runtime. The injected Pi AI completion path
-remains the fallback for hosts without that runtime registry. Intended npm
-routing after publication is `next=alpha.5` and `latest=alpha.4`.
+Published alpha.5 repairs Pi 0.84.2 Summary calls by using the active Pi model
+runtime. The injected Pi AI completion path remains the fallback for hosts
+without that runtime registry. npm `next` selects alpha.5 and `latest` remains
+alpha.4. The durable publication evidence is the
+[alpha.5 release receipt](release/v0.1.0-alpha.5-release-receipt.md).
 
 The old alpha.1, alpha.2, and alpha.3 tag graphs remain public and are not
-privacy-clean. Existing alpha.1 through alpha.4 tags, releases, and npm
-artifacts remain immutable. The source-only candidate derivation and
-vendored-scanner binding is
+privacy-clean. Existing package versions, tags, and releases remain immutable.
+The source-only candidate derivation and vendored-scanner binding is
 [`release/privacy-lineage.v1.json`](release/privacy-lineage.v1.json). It is
 excluded from npm and does not claim publication completion.
 
