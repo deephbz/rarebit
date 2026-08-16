@@ -4,7 +4,7 @@
   "state": "candidate",
   "component": {
     "name": "@hypercarrier/rarebit",
-    "version": "0.1.0-alpha.4"
+    "version": "0.1.0-alpha.5"
   },
   "policy": "sanitized_current_lineage_with_retained_legacy_refs",
   "scope": {
@@ -85,8 +85,8 @@
   },
   "npm_routing": {
     "state": "intended_not_applied",
-    "next": "0.1.0-alpha.4",
-    "latest": "0.1.0-alpha.1"
+    "next": "0.1.0-alpha.5",
+    "latest": "0.1.0-alpha.4"
   },
   "publication_completion": {
     "state": "not_complete",

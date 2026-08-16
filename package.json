@@ -1,6 +1,6 @@
 {
   "name": "@hypercarrier/rarebit",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "Sparse, provenance-bearing conversational evidence recovery for Pi sessions.",
   "license": "MIT",
   "author": "HyperCarrier contributors",
@@ -29,13 +29,15 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "test:e2e:summary-cache": "node scripts/e2e-summary-cache.mjs",
-    "test:e2e:recall": "node scripts/e2e-recall-pi083.mjs",
+    "test:e2e:recall": "node scripts/e2e-recall-pi0842.mjs",
+    "test:e2e:recall:pi083": "node scripts/e2e-recall-pi083.mjs",
     "verify:package": "node scripts/verify-package.mjs"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": "*"
+    "@earendil-works/pi-ai": ">=0.83.0"
   },
   "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.2",
     "ajv": "^6.15.0",
     "typescript": "^5.9.3"
   },

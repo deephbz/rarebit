@@ -16,13 +16,14 @@ const required = [
   "package/SECURITY.md", "package/bin/rarebit.mjs",
   "package/src/index.mjs", "package/src/types.d.ts",
   "package/schemas/rarebit.schema.json", "package/test/rarebit-cli.test.mjs",
-  "package/scripts/e2e-recall-pi083.mjs", "package/scripts/verify-package.mjs",
+  "package/scripts/e2e-recall-pi083.mjs", "package/scripts/e2e-recall-pi0842.mjs", "package/scripts/verify-package.mjs",
 ];
 const forbiddenPath = /(^|\/)(\.git|node_modules|\.github|hc-rarebit\.mjs)(\/|$)|HyperCarrier|timeline|pi-team/i;
 const allowedBare = new Set(["@earendil-works/pi-ai"]);
 const packageFor = (specifier) => specifier.startsWith("@") ? specifier.split("/").slice(0, 2).join("/") : specifier.split("/")[0];
 const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-assert.equal(packageJson.version, "0.1.0-alpha.4", "release version mismatch");
+assert.equal(packageJson.version, "0.1.0-alpha.5", "release version mismatch");
+assert.equal(packageJson.peerDependencies?.["@earendil-works/pi-ai"], ">=0.83.0", "Pi AI peer range mismatch");
 
 const packed = JSON.parse(npm(["pack", "--json", "--ignore-scripts"]))[0];
 const tarball = join(root, packed.filename);

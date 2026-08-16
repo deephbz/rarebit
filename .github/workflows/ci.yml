@@ -22,5 +22,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm run test:e2e:recall:pi083
+      - run: npm run test:e2e:recall
       - run: npm run verify:package
       - run: npm pack --dry-run

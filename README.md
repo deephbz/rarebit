@@ -10,22 +10,24 @@ and visual language can change. It is not a Task, Project, runtime, priority,
 attention, or delivery authority. Native Pi Session JSONL remains the evidence
 authority.
 
-Alpha.4 is a new artifact with a sanitized current source lineage. Product
-capability is unchanged from the alpha.3 cutoff tree `db7d388`. The old tag
-graphs remain public and are not privacy-clean. All existing alpha.1, alpha.2,
-and alpha.3 tags, releases, and npm artifacts remain immutable (there is no
-alpha.1 GitHub Release). Alpha.3 remains the original readable-Recall release.
-Intended npm routing after publication is `next=alpha.4` and `latest=alpha.1`.
-The source-only machine-readable candidate derivation and vendored-scanner
-binding is [`release/privacy-lineage.v1.json`](release/privacy-lineage.v1.json).
-It is excluded from npm and does not claim publication completion.
+Alpha.5 is an unpublished local candidate that repairs Pi 0.84.2 Summary
+calls by using the active Pi model runtime. The injected Pi AI completion path
+remains the fallback for hosts without that runtime registry. Intended npm
+routing after publication is `next=alpha.5` and `latest=alpha.4`.
+
+The old alpha.1, alpha.2, and alpha.3 tag graphs remain public and are not
+privacy-clean. Existing alpha.1 through alpha.4 tags, releases, and npm
+artifacts remain immutable. The source-only candidate derivation and
+vendored-scanner binding is
+[`release/privacy-lineage.v1.json`](release/privacy-lineage.v1.json). It is
+excluded from npm and does not claim publication completion.
 
 ## Install
 
 Use Node 22 or later and Pi 0.83 or later. Install it in Pi from npm:
 
 ```sh
-pi install npm:@hypercarrier/rarebit@0.1.0-alpha.4
+pi install npm:@hypercarrier/rarebit@0.1.0-alpha.5
 pi list
 ```
 
@@ -44,7 +46,7 @@ To use the CLI in a normal Node project, install it and invoke the local bin
 with npm:
 
 ```sh
-npm install @hypercarrier/rarebit@0.1.0-alpha.4
+npm install @hypercarrier/rarebit@0.1.0-alpha.5
 npm exec -- rarebit --help
 ```
 
@@ -128,14 +130,14 @@ sensitive. Do not put their paths or content in a ticket.
 Pin alpha versions for reproducible installs:
 
 ```sh
-pi install npm:@hypercarrier/rarebit@0.1.0-alpha.4
+pi install npm:@hypercarrier/rarebit@0.1.0-alpha.5
 pi remove npm:@hypercarrier/rarebit
 ```
 
 The exact-version install also moves an existing Rarebit npm installation to
 that pin. Pi skips versioned npm sources during package updates. Do not use an
-unpinned source for alpha.4 recovery: unpinned npm resolution follows the
-retained `latest`, which remains alpha.1.
+unpinned source for alpha.5 recovery: unpinned npm resolution follows the
+retained `latest`, which remains alpha.4.
 
 To roll back, reinstall a known version with `pi install npm:@hypercarrier/rarebit@<version>`.
 Removal stops package loading. It does not alter Pi Session JSONL or delete
@@ -144,9 +146,11 @@ only after you review it.
 
 ## Compatibility and support
 
-This alpha supports Node 22+ and Pi 0.83+. It works as a deterministic CLI
-without a model. Summary, Title, and the Pi extension require a compatible Pi
-installation and configured provider credentials.
+This alpha supports Node 22+ and Pi 0.83.0 or later. Its Pi AI peer has no
+upper bound. The release gate runs Recall against Pi 0.83.0 and Pi 0.84.2. It
+works as a deterministic CLI without a model. Summary, Title, and the Pi
+extension require a compatible Pi installation and configured provider
+credentials.
 
 Report security issues privately as described in [SECURITY.md](SECURITY.md).
 Use https://github.com/deephbz/rarebit/issues for normal support. Include no
