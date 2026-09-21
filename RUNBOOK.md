@@ -1,20 +1,20 @@
 # Rarebit runbook
 
-This runbook applies to `0.1.0-alpha.6`. This candidate adds bounded fork
-flows, PiQ recovery, machine-only lineage, and Pi-native headroom checks. The
-published alpha.5 release repaired Pi 0.84.2 Summary calls. See
-[CHANGELOG.md](CHANGELOG.md) for release details.
+Rarebit release automation lives in
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml). It validates
+an immutable version tag, runs the package gates, verifies one packed artifact,
+and publishes that artifact with npm provenance. See [CHANGELOG.md](CHANGELOG.md)
+for product changes.
 
 Set `rarebit.model` in global Pi settings or in a trusted Project's
 `.pi/settings.json`. It must be `provider/model` or an object with `provider`
 and `id`. Rarebit fails closed when it is missing or invalid. It does not use
 Pi's interactive `defaultModel`.
 
-Install or move this package to the alpha.6 pin with
-`pi install npm:@hypercarrier/rarebit@0.1.0-alpha.6`. Pi treats versioned npm
-sources as pinned, so package update commands skip it. Do not use an unpinned
-source for alpha.6 recovery: unpinned npm resolution follows `latest`, which
-remains alpha.4. Run `pi remove npm:@hypercarrier/rarebit` to
+Install or move this package to an exact version with
+`pi install npm:@hypercarrier/rarebit@<version>`. Pi treats versioned npm
+sources as pinned, so package update commands skip it. Run `pi remove
+npm:@hypercarrier/rarebit` to
 stop loading it. These commands do not modify native Sessions or remove Rarebit
 retained data.
 

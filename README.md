@@ -10,12 +10,11 @@ and visual language can change. It is not a Task, Project, runtime, priority,
 attention, or delivery authority. Native Pi Session JSONL remains the evidence
 authority.
 
-Alpha.6 is an unpublished release candidate. It adds bounded Rarebit fork
-flows, PiQ recovery, machine-only lineage, and Pi-native headroom checks.
-Intended npm routing after publication is `next=alpha.6`; `latest` remains
-`alpha.4`. Published alpha.5 repairs Pi 0.84.2 Summary calls by using the
-active Pi model runtime. Its durable publication evidence is the
-[alpha.5 release receipt](release/v0.1.0-alpha.5-release-receipt.md).
+Rarebit is released from an immutable version tag by
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml). The workflow
+runs the package gates, verifies one packed artifact, scans that artifact, and
+publishes it with npm provenance. Install the exact version required by your
+Pi host.
 
 The old alpha.1, alpha.2, and alpha.3 tag graphs remain public and are not
 privacy-clean. Existing package versions, tags, and releases remain immutable.

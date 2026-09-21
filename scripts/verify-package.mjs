@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -21,14 +21,19 @@ const required = [
 const forbiddenPath = /(^|\/)(\.git|node_modules|\.github|hc-rarebit\.mjs)(\/|$)|HyperCarrier|timeline|pi-team/i;
 const allowedBare = new Set(["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent"]);
 const packageFor = (specifier) => specifier.startsWith("@") ? specifier.split("/").slice(0, 2).join("/") : specifier.split("/")[0];
-const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-assert.equal(packageJson.version, "0.1.0-alpha.6", "release version mismatch");
+const packageJson = JSON.parse(run("git", ["show", "HEAD:package.json"]));
 assert.equal(packageJson.peerDependencies?.["@earendil-works/pi-ai"], ">=0.83.0", "Pi AI peer range mismatch");
 for (const peer of ["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent"])
   assert.equal(packageJson.peerDependenciesMeta?.[peer]?.optional, true, `${peer} peer must remain optional`);
 
-const packed = JSON.parse(npm(["pack", "--json", "--ignore-scripts"]))[0];
-const tarball = join(root, packed.filename);
+const suppliedTarball = process.env.RELEASE_TARBALL;
+const packed = suppliedTarball
+  ? { filename: basename(suppliedTarball), integrity: "provided-tarball" }
+  : JSON.parse(npm(["pack", "--json", "--ignore-scripts"]))[0];
+const tarball = suppliedTarball ? resolve(root, suppliedTarball) : join(root, packed.filename);
+const packedPackageJson = JSON.parse(run("tar", ["-xOf", tarball, "package/package.json"]));
+assert.equal(packedPackageJson.name, packageJson.name, "packed package name differs from selected source");
+assert.equal(packedPackageJson.version, packageJson.version, "packed package version differs from selected source");
 const entries = run("tar", ["-tf", tarball]).trim().split("\n").filter(Boolean).sort();
 for (const path of required) assert(entries.includes(path), `tarball lacks ${path}`);
 for (const path of entries) assert(!forbiddenPath.test(path), `forbidden tar entry: ${path}`);
@@ -81,5 +86,5 @@ try {
   process.stdout.write(`verified ${packed.filename} (${packed.integrity}) with ${entries.length} tar entries\n`);
 } finally {
   await rm(temp, { recursive: true, force: true });
-  await rm(tarball, { force: true });
+  if (!suppliedTarball) await rm(tarball, { force: true });
 }
