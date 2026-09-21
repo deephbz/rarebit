@@ -13,17 +13,19 @@ const npm = (args, cwd = root) => run("npm", args, cwd);
 const required = [
   "package/README.md", "package/RUNBOOK.md", "package/VISUAL-LANGUAGE.md",
   "package/AGENTS.md", "package/CHANGELOG.md", "package/LICENSE",
-  "package/SECURITY.md", "package/bin/rarebit.mjs",
-  "package/src/index.mjs", "package/src/types.d.ts",
+  "package/SECURITY.md", "package/bin/rarebit.mjs", "package/bin/piq.mjs",
+  "package/src/index.mjs", "package/src/rarebit-fork-lineage.mjs", "package/src/rarebit-fork.mjs", "package/src/types.d.ts",
   "package/schemas/rarebit.schema.json", "package/test/rarebit-cli.test.mjs",
   "package/scripts/e2e-recall-pi083.mjs", "package/scripts/e2e-recall-pi0842.mjs", "package/scripts/verify-package.mjs",
 ];
 const forbiddenPath = /(^|\/)(\.git|node_modules|\.github|hc-rarebit\.mjs)(\/|$)|HyperCarrier|timeline|pi-team/i;
-const allowedBare = new Set(["@earendil-works/pi-ai"]);
+const allowedBare = new Set(["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent"]);
 const packageFor = (specifier) => specifier.startsWith("@") ? specifier.split("/").slice(0, 2).join("/") : specifier.split("/")[0];
 const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-assert.equal(packageJson.version, "0.1.0-alpha.5", "release version mismatch");
+assert.equal(packageJson.version, "0.1.0-alpha.6", "release version mismatch");
 assert.equal(packageJson.peerDependencies?.["@earendil-works/pi-ai"], ">=0.83.0", "Pi AI peer range mismatch");
+for (const peer of ["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent"])
+  assert.equal(packageJson.peerDependenciesMeta?.[peer]?.optional, true, `${peer} peer must remain optional`);
 
 const packed = JSON.parse(npm(["pack", "--json", "--ignore-scripts"]))[0];
 const tarball = join(root, packed.filename);
@@ -35,7 +37,7 @@ assert(!entries.includes("package/bin/hc-rarebit.mjs"), "legacy CLI is packed");
 const sourceFiles = entries.filter((path) => path.endsWith(".mjs") && !path.startsWith("package/test/"));
 for (const entry of sourceFiles) {
   const text = run("tar", ["-xOf", tarball, entry]);
-  for (const match of text.matchAll(/(?:from\s*|import\s*\()\s*["']([^"']+)["']/g)) {
+  for (const match of text.matchAll(/(?:\bfrom\s+|import\s*\()\s*["']([^"']+)["']/g)) {
     const specifier = match[1];
     if (!specifier.startsWith(".") && !specifier.startsWith("node:") && !allowedBare.has(packageFor(specifier))) {
       throw new Error(`undeclared runtime import ${specifier} in ${entry}`);
@@ -52,10 +54,10 @@ try {
   npm(["init", "-y"], temp);
   npm(["install", "--ignore-scripts", "--omit=dev", tarball], temp);
   const installed = "@hypercarrier/rarebit";
-  for (const subpath of ["", "/core", "/session", "/service", "/artifact-state", "/visual-language", "/extension"]) {
+  for (const subpath of ["", "/core", "/session", "/service", "/artifact-state", "/fork", "/fork-lineage", "/visual-language", "/extension"]) {
     run(process.execPath, ["--input-type=module", "-e", `await import(${JSON.stringify(installed + subpath)})`], temp);
   }
-  const imports = ["", "/core", "/session", "/service", "/artifact-state", "/visual-language", "/extension"]
+  const imports = ["", "/core", "/session", "/service", "/artifact-state", "/fork", "/fork-lineage", "/visual-language", "/extension"]
     .map((subpath) => `import ${JSON.stringify(installed + subpath)};`).join("\n");
   await writeFile(join(temp, "imports.mts"), imports);
   run(join(root, "node_modules/.bin/tsc"), ["--noEmit", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2022", "--skipLibCheck", "imports.mts"], temp);

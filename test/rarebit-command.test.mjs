@@ -14,11 +14,11 @@ const values = (prefix) =>
 test("one grammar derives command description and usage", () => {
   assert.equal(
     rarebitCommandDescription(),
-    "Rarebit status/recall/config/auto-title/title/summarize",
+    "Rarebit status/recall/fork/config/auto-title/title/summarize",
   );
   assert.equal(
     rarebitCommandUsage(),
-    "Usage: /rarebit [status|recall|config|auto-title|title|summarize]",
+    "Usage: /rarebit [status|recall|fork|config|auto-title|title|summarize]",
   );
   assert.equal(
     rarebitCommandUsage("config"),
@@ -44,6 +44,8 @@ test("parser accepts exactly the command grammar", () => {
     subcommand: "status",
     arguments: [],
   });
+  assert.equal(parseRarebitCommand("fork").ok, true);
+  assert.equal(parseRarebitCommand("fork --max-token-length 64000").ok, true);
   assert.equal(parseRarebitCommand("config").ok, true);
   assert.equal(parseRarebitCommand("config max_rarebit_ratio 0.4").ok, true);
   assert.equal(parseRarebitCommand("config min_total_length 80000").ok, true);
@@ -93,6 +95,7 @@ test("autocomplete covers subcommands and discrete nested arguments", () => {
   assert.deepEqual(values(""), [
     "status",
     "recall",
+    "fork",
     "config",
     "auto-title",
     "title",

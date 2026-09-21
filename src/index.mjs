@@ -8,6 +8,7 @@ export * from "./rarebit-service.mjs";
 export * from "./rarebit-session.mjs";
 export * from "./rarebit-store.mjs";
 export * from "./rarebit-artifact-state.mjs";
+export * from "./rarebit-fork-lineage.mjs";
 export * from "./rarebit-visual-language.mjs";
 export * from "./rarebit-settings.mjs";
 export { default } from "./extension.mjs";

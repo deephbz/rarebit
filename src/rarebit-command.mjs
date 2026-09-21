@@ -30,6 +30,14 @@ export const RAREBIT_COMMAND_GRAMMAR = Object.freeze({
       forms: [[rest("<prompt...>")]],
     },
     {
+      name: "fork",
+      description: "Open a bounded Rarebit fork without starting a model turn",
+      forms: [
+        [],
+        [literal("--max-token-length", "Imported Rarebit token budget"), number("<positive tokens>", (value) => Number.isSafeInteger(value) && value > 0)],
+      ],
+    },
+    {
       name: "config",
       description: "Show or override summary policy for this process",
       forms: [

@@ -12,12 +12,19 @@ import {
   queryRarebits,
   readRarebitSession,
 } from "./rarebit-session.mjs";
+import {
+  buildRarebitForkPlan,
+  createRarebitForkEntries,
+  sessionFilenameFor,
+  writeRarebitForkFile,
+} from "./rarebit-fork.mjs";
 
 export const RAREBIT_CLI_USAGE = `Usage:
   rarebit query --session <exact-path-or-id> --json
   rarebit extract --session <exact-path-or-id> --json
   rarebit summarize --session <exact-path-or-id> [--force] [--model-command <executable> [--model-arg <arg>]] --json
   rarebit title --session <exact-path-or-id> [--date YYYY-MM-DD] [--model-command <executable> [--model-arg <arg>]] --json
+  rarebit fork <exact-source-path-or-id> [--max-token-length <tokens>] [--no-launch] [--json]
 
 Normal summarize/title resolve rarebit.model from Pi settings. The optional model-command
 adapter receives one prompt on stdin and must write only model text to stdout.
@@ -33,17 +40,28 @@ function requiredValue(argv, index, flag) {
 export function parseRarebitCliArgs(argv) {
   if (argv.includes("--help") || argv.includes("-h")) return { help: true };
   const [command, ...rest] = argv;
-  if (!new Set(["query", "extract", "summarize", "title"]).has(command))
+  if (!new Set(["query", "extract", "summarize", "title", "fork"]).has(command))
     throw new Error(
       "First argument must be query, extract, summarize, or title",
     );
-  const options = { command, modelArgs: [], json: false, force: false };
+  const options = { command, modelArgs: [], json: false, force: false, noLaunch: false };
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index];
     switch (argument) {
       case "--session":
         options.session = requiredValue(rest, index, argument);
         index += 1;
+        break;
+      case "--max-token-length":
+        options.maxTokenLength = Number(requiredValue(rest, index, argument));
+        index += 1;
+        break;
+      case "--model":
+        options.model = requiredValue(rest, index, argument);
+        index += 1;
+        break;
+      case "--no-launch":
+        options.noLaunch = true;
         break;
       case "--model-command":
         options.modelCommand = requiredValue(rest, index, argument);
@@ -64,11 +82,13 @@ export function parseRarebitCliArgs(argv) {
         options.force = true;
         break;
       default:
-        throw new Error(`Unknown argument: ${argument}`);
+        if (command === "fork" && !argument.startsWith("--") && !options.session) options.session = argument;
+        else throw new Error(`Unknown argument: ${argument}`);
     }
   }
-  if (!options.session) throw new Error("--session is required");
-  if (!options.json) throw new Error("--json is required");
+  if (!options.session) throw new Error(command === "fork" ? "fork requires an exact source Session path or ID" : "--session is required");
+  if (options.maxTokenLength !== undefined && (!Number.isSafeInteger(options.maxTokenLength) || options.maxTokenLength < 1)) throw new Error("--max-token-length must be a positive integer");
+  if (!options.json && command !== "fork") throw new Error("--json is required");
   if (options.force && command !== "summarize")
     throw new Error("--force only applies to summarize");
   return options;
@@ -235,6 +255,79 @@ async function modelRuntime(options, dependencies) {
   };
 }
 
+async function resolveForkTarget({ cwd, explicitModel, agentDir, resolveTarget }) {
+  if (resolveTarget) return resolveTarget({ cwd, explicitModel, agentDir });
+  const {
+    ModelRuntime,
+    SessionManager,
+    SettingsManager,
+    createAgentSession,
+  } = await import("@earendil-works/pi-coding-agent");
+  const settings = SettingsManager.create(cwd, agentDir);
+  const runtime = await ModelRuntime.create({ allowModelNetwork: false });
+  let targetModel;
+  if (explicitModel) {
+    const [provider, ...idParts] = explicitModel.split("/");
+    const id = idParts.join("/");
+    targetModel = runtime.getModel(provider, id);
+  } else {
+    const provider = settings.getDefaultProvider();
+    const id = settings.getDefaultModel();
+    targetModel = provider && id ? runtime.getModel(provider, id) : undefined;
+    if (!targetModel) targetModel = (await runtime.getAvailable())[0];
+  }
+  if (!targetModel?.provider || !targetModel?.id || !Number.isFinite(targetModel.contextWindow))
+    throw new Error("Cannot resolve the target Pi model and context window before forking; set Pi's default model or pass --model provider/model");
+  const global = settings.getGlobalSettings();
+  const project = settings.getProjectSettings();
+  const key = `${targetModel.provider}/${targetModel.id}`;
+  const overrides = { ...(global.compaction?.modelOverrides ?? {}), ...(project.compaction?.modelOverrides ?? {}) };
+  const reserveTokens = overrides[key]?.reserveTokens ?? settings.getCompactionReserveTokens();
+  const { session } = await createAgentSession({
+    cwd,
+    agentDir,
+    model: targetModel,
+    modelRuntime: runtime,
+    settingsManager: settings,
+    sessionManager: SessionManager.inMemory(cwd),
+  });
+  try {
+    const promptOverheadTokens = Math.ceil(String(session.agent.state.systemPrompt ?? "").length / 4);
+    const toolOverheadTokens = Math.ceil(JSON.stringify(session.agent.state.tools ?? []).length / 4);
+    return { model: targetModel, reserveTokens, promptOverheadTokens, toolOverheadTokens };
+  } finally {
+    session.dispose();
+  }
+}
+
+export async function runPiFork({ session, maxTokenLength, cwd = process.cwd(), piCommand = "pi", noLaunch = false, model, agentDir, resolveTarget, spawnProcess = spawn } = {}) {
+  const loaded = await readRarebitSession(session);
+  const target = await resolveForkTarget({ cwd, explicitModel: model, agentDir, resolveTarget });
+  const targetModel = target.model;
+  const plan = buildRarebitForkPlan({
+    header: loaded.parsed.header,
+    sessionFile: loaded.sessionFile,
+    cwd,
+    branch: loaded.branch,
+    targetCwd: cwd,
+    maxTokenLength,
+    targetModel,
+    reserveTokens: target.reserveTokens,
+    promptOverheadTokens: target.promptOverheadTokens,
+    toolOverheadTokens: target.toolOverheadTokens,
+  });
+  const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+  const destinationManager = SessionManager.create(cwd);
+  const destination = sessionFilenameFor({ sessionDir: destinationManager.getSessionDir(), forkCreatedAt: plan.forkCreatedAt, sessionId: destinationManager.getSessionId() });
+  const built = createRarebitForkEntries(plan, { sessionId: destinationManager.getSessionId() });
+  await writeRarebitForkFile(destination, built);
+  const result = { operation: "fork", session: destination, sourceSessionId: loaded.session.id, ...plan.omission, headroom: plan.headroom, launched: false };
+  if (noLaunch) return result;
+  const child = spawnProcess(piCommand, ["--session", destination], { cwd, stdio: "inherit", shell: false, env: process.env });
+  const exit = await new Promise((resolve, reject) => { child.on("error", reject); child.on("close", (code, signal) => resolve({ code, signal })); });
+  return { ...result, launched: true, exitCode: exit.code, signal: exit.signal };
+}
+
 export async function runRarebitCli(options, dependencies = {}) {
   const runtimeDependencies = {
     readSettings: dependencies.readSettings ?? readRarebitCliSettings,
@@ -245,6 +338,9 @@ export async function runRarebitCli(options, dependencies = {}) {
   };
   if (options.command === "query") return queryRarebits(options.session);
   if (options.command === "extract") return extractRarebits(options.session);
+  if (options.command === "fork") {
+    return runPiFork({ session: options.session, maxTokenLength: options.maxTokenLength, noLaunch: options.noLaunch, piCommand: dependencies.piCommand, model: options.model, agentDir: dependencies.agentDir, resolveTarget: dependencies.resolveTarget, spawnProcess: dependencies.spawnProcess });
+  }
 
   const loaded = await readRarebitSession(options.session);
   const runtime = await modelRuntime(options, runtimeDependencies);

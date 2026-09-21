@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0-alpha.6 — 2026-09-21
+
+- Add bounded `/rarebit fork` and CLI fork flows with native Pi headroom checks.
+- Add PiQ read-only recovery, machine-only lineage, repeat-fork ancestry, and
+  activity exclusion for imported entries.
+- Keep read-only package commands usable without optional Pi host peers; fork
+  runtime loads the Pi adapter only when needed.
+
+This is an unpublished release candidate. Intended npm routing after
+publication is `next=alpha.6`; `latest` remains `alpha.4`.
+
 ## 0.1.0-alpha.5 — 2026-08-16
 
 - Repair Pi 0.84.2 Summary calls to use the active Pi model runtime. The
@@ -7,8 +18,8 @@
 - Declare the unbounded Pi AI peer range from Pi 0.83.0. The release gate runs
   Recall against Pi 0.83.0 and Pi 0.84.2.
 
-This is an unpublished local release candidate. Intended npm routing after
-publication is `next=alpha.5` and `latest=alpha.4`.
+Alpha.5 was published on the `next` dist-tag. The `latest` dist-tag remains
+`alpha.4`.
 
 ## 0.1.0-alpha.4 — 2026-08-02
 

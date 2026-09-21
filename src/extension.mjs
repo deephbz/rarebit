@@ -1,8 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { complete } from "@earendil-works/pi-ai/compat";
-
 export * from "./rarebit-core.mjs";
 export * from "./rarebit-model.mjs";
 export * from "./automatic-summary-policy.mjs";
@@ -27,6 +25,12 @@ import {
   rarebitCommandDescription,
 } from "./rarebit-command.mjs";
 import {
+  buildRarebitForkPlan,
+  createRarebitForkEntries,
+  sessionFilenameFor,
+  writeRarebitForkFile,
+} from "./rarebit-fork.mjs";
+import {
   RAREBIT_CONVERSATION_SCHEMA_VERSION,
   RAREBIT_RECALL_SCHEMA_VERSION,
   materializeRarebitRecall,
@@ -49,6 +53,17 @@ async function readSettings(path) {
   }
 }
 
+function resolveReserveTokens(globalSettings, projectSettings, model) {
+  const globalCompaction = globalSettings?.compaction ?? {};
+  const projectCompaction = projectSettings?.compaction ?? {};
+  const compaction = { ...globalCompaction, ...projectCompaction };
+  const modelOverrides = { ...(globalCompaction.modelOverrides ?? {}), ...(projectCompaction.modelOverrides ?? {}) };
+  const key = model?.provider && model?.id ? `${model.provider}/${model.id}` : null;
+  const override = key ? modelOverrides[key] : undefined;
+  const value = override?.reserveTokens ?? (Object.hasOwn(projectCompaction, "reserveTokens") ? projectCompaction.reserveTokens : compaction.reserveTokens) ?? 16_384;
+  return Number.isSafeInteger(value) && value >= 0 ? value : 16_384;
+}
+
 function configuredAgentDir(env = process.env) {
   return env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
 }
@@ -56,6 +71,7 @@ function configuredAgentDir(env = process.env) {
 export async function readConfiguredRarebitSettings({
   cwd,
   projectTrusted,
+  model,
   agentDir = configuredAgentDir(),
 } = {}) {
   const global = await readSettings(join(agentDir, "settings.json"));
@@ -88,6 +104,7 @@ export async function readConfiguredRarebitSettings({
     },
     summaryPolicy: resolved.summaryPolicy,
     autoTitle: resolved.autoTitle,
+    reserveTokens: resolveReserveTokens(global.value, project.value, model),
   };
 }
 
@@ -104,10 +121,13 @@ export default function registerPiRarebit(pi, config = {}) {
     });
   const activityReporter =
     explicit.activityReporter ?? createHerdrActivityReporter();
-  const projectActivity = (ctx) =>
-    projectRarebitSessionActivity(
-      selectRarebits(ctx?.sessionManager?.getBranch?.() ?? []),
-    );
+  const projectActivity = (ctx) => {
+    const entries = ctx?.sessionManager?.getBranch?.() ?? [];
+    return projectRarebitSessionActivity({
+      ...selectRarebits(entries),
+      entries,
+    });
+  };
 
   const notify = (ctx, text, level = "info") => {
     if (!ctx?.hasUI || typeof ctx?.ui?.notify !== "function") return;
@@ -179,6 +199,7 @@ export default function registerPiRarebit(pi, config = {}) {
         injected = await settingsLoader({
           cwd: ctx?.cwd,
           projectTrusted: ctx?.isProjectTrusted?.() === true,
+          model: ctx?.model,
         });
       } catch (error) {
         injected = {
@@ -200,7 +221,9 @@ export default function registerPiRarebit(pi, config = {}) {
       ...injected,
       ...explicit,
       summaryPolicy,
-      piAi: explicit.piAi ?? { complete },
+      piAi: explicit.piAi ?? {
+        complete: async (...args) => (await import("@earendil-works/pi-ai/compat")).complete(...args),
+      },
     };
   };
 
@@ -434,6 +457,72 @@ ${fence(requestText)}`;
         return;
       }
       const { subcommand, arguments: rest } = command;
+      if (subcommand === "fork") {
+        if (typeof ctx?.switchSession !== "function") {
+          notify(ctx, "Rarebit fork is unavailable in this Pi runtime", "error");
+          return;
+        }
+        let destination;
+        let switchStarted = false;
+        try {
+          await ctx.waitForIdle?.();
+          const sourceFile = ctx.sessionManager?.getSessionFile?.();
+          const branch = ctx.sessionManager?.getBranch?.();
+          const sourceHeader = ctx.sessionManager?.getHeader?.();
+          if (typeof sourceFile !== "string" || !Array.isArray(branch))
+            throw new Error("the current Pi Session must be persisted before forking");
+          const maxTokenLength = Number(rest[1] ?? 64_000);
+          const model = ctx.model ?? null;
+          if (!model || typeof model.provider !== "string" || !model.provider || typeof model.id !== "string" || !model.id || !Number.isFinite(model.contextWindow) || model.contextWindow <= 0)
+            throw new Error("destination model/context window is unavailable; select a target Pi model before forking");
+          const effective = await loadEffective(ctx);
+          const promptOverheadTokens = Math.ceil(String(ctx.getSystemPrompt?.() ?? "").length / 4);
+          const activeToolNames = new Set(pi.getActiveTools?.() ?? []);
+          const activeToolSchema = (pi.getAllTools?.() ?? [])
+            .filter((tool) => activeToolNames.has(tool.name))
+            .map(({ name, description, parameters }) => ({ name, description, parameters }));
+          const toolOverheadTokens = Math.ceil(JSON.stringify(activeToolSchema).length / 4);
+          const plan = buildRarebitForkPlan({
+            header: sourceHeader, sessionFile: sourceFile, cwd: ctx.cwd, branch,
+            targetCwd: ctx.cwd, maxTokenLength, targetModel: model,
+            reserveTokens: effective.reserveTokens ?? 16_384,
+            promptOverheadTokens,
+            toolOverheadTokens,
+          });
+          const currentLeaf = ctx.sessionManager.getLeafId?.() ?? branch.at(-1)?.id ?? null;
+          if (currentLeaf !== (plan.branchLeafId ?? null))
+            throw new Error("the active source branch changed during fork preparation; retry without switching branches");
+          const session = createRarebitForkEntries(plan);
+          const sessionDir = ctx.sessionManager.getSessionDir?.();
+          if (typeof sessionDir !== "string" || !sessionDir)
+            throw new Error("the current Pi Session store is unavailable");
+          destination = sessionFilenameFor({ sessionDir, forkCreatedAt: plan.forkCreatedAt, sessionId: session.sessionId });
+          await writeRarebitForkFile(destination, session);
+          const currentSourceFile = ctx.sessionManager.getSessionFile?.();
+          const currentSourceId = ctx.sessionManager.getHeader?.()?.id;
+          const currentSourceLeaf = ctx.sessionManager.getLeafId?.() ?? ctx.sessionManager.getBranch?.()?.at(-1)?.id ?? null;
+          if (resolve(currentSourceFile ?? "") !== resolve(sourceFile) || currentSourceId !== sourceHeader?.id || currentSourceLeaf !== (plan.branchLeafId ?? null))
+            throw new Error("the active source Session or branch changed during fork preparation; retry without switching branches");
+          switchStarted = true;
+          const switched = await ctx.switchSession(destination, {
+            withSession: async (next) => {
+              notify(next, `Rarebit fork opened (${plan.importedTokens} imported tokens; ${plan.omittedOccurrences} omitted occurrences)`, "info");
+            },
+          });
+          if (switched?.cancelled) {
+            await rm(destination, { force: true });
+            destination = undefined;
+            notify(ctx, "Rarebit fork cancelled before switching", "warning");
+          }
+        } catch (error) {
+          if (destination && !switchStarted) await rm(destination, { force: true }).catch(() => {});
+          const retained = destination && switchStarted
+            ? ` Destination retained at ${destination}; resume it if the replacement is active.`
+            : "";
+          notify(ctx, `Rarebit fork failed: ${error?.message ?? error}.${retained}`, "error");
+        }
+        return;
+      }
       if (subcommand === "recall") {
         const prompt = rest[0];
         if (typeof pi.sendUserMessage !== "function") {

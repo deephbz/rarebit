@@ -1,5 +1,35 @@
 export type RarebitModel = { provider: string; id: string };
 
+/** Seeded destination entries, including the generated fork notice. */
+export function getImportedRarebitEntryIds(entries: readonly unknown[]): Set<string>;
+export const RAREBIT_FORK_LINEAGE_SCHEMA_VERSION: 1;
+export const RAREBIT_FORK_ENTRY_MARKER_VERSION: "rarebit-fork-entry/1";
+export const RAREBIT_FORK_LINEAGE_CUSTOM_TYPE: "rarebit-fork-lineage";
+export const RAREBIT_FORK_OPENING_MARKER: "rarebit-fork-opening-v1";
+export const RAREBIT_FORK_DEFAULT_MAX_TOKEN_LENGTH: 64000;
+export const RAREBIT_FORK_DEFAULT_RESERVE_TOKENS: 16384;
+export type RarebitForkHeadroom = {
+  seedTokens: number;
+  overheadTokens: number;
+  requiredTokens: number;
+  contextWindow: number | null;
+  reserveTokens: number;
+  availableTokens: number | null;
+  basis: string;
+};
+/** A null context window yields an estimate without admission. Runtime adapters must require a known window before creating a Session. */
+export function checkRarebitForkHeadroom(options: {
+  seedText: string;
+  targetModel?: RarebitModel | null;
+  contextWindow?: number | null;
+  reserveTokens?: number;
+  promptOverheadTokens?: number;
+  toolOverheadTokens?: number;
+  messageRoundingOverheadTokens?: number;
+}): RarebitForkHeadroom;
+export function getRarebitForkSeedEntryIds(entries: readonly unknown[]): Set<string>;
+export function getRarebitForkLineageRecords(entries: readonly unknown[]): readonly Record<string, unknown>[];
+
 export type RarebitAutomaticSummaryPolicyDecision =
   | {
       contractVersion: "rarebit-automatic-summary-policy/1";
@@ -119,6 +149,7 @@ export function projectRarebitSessionActivity(selection: {
   occurrences?: RarebitOccurrence[];
   manifest?: { selectorVersion?: string };
   manifestHash?: string;
+  entries?: readonly unknown[];
 }): RarebitSessionActivity;
 
 export type RarebitVisualTone =

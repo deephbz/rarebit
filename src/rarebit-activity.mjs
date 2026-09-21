@@ -1,3 +1,5 @@
+import { getImportedRarebitEntryIds } from "./rarebit-fork-lineage.mjs";
+
 // Native Rarebit selection is the source of these recency coordinates. This
 // module deliberately has no clock or renderer: consumers choose how (and
 // whether) to project an age from an exact active-branch snapshot.
@@ -25,6 +27,10 @@ export function projectRarebitSessionActivity(selection) {
   const occurrences = Array.isArray(selection?.occurrences)
     ? selection.occurrences
     : [];
+  const importedIds = getImportedRarebitEntryIds(selection?.entries);
+  const visibleOccurrences = occurrences.filter(
+    (occurrence) => !importedIds.has(occurrence?.sourceEntryId),
+  );
   return Object.freeze({
     schemaVersion: 1,
     selectorVersion:
@@ -36,11 +42,11 @@ export function projectRarebitSessionActivity(selection) {
         ? selection.manifestHash
         : null,
     latestUser: latest(
-      occurrences,
+      visibleOccurrences,
       (occurrence) => occurrence?.role === "user",
     ),
     latestAgentStop: latest(
-      occurrences,
+      visibleOccurrences,
       (occurrence) =>
         occurrence?.role === "assistant" && occurrence?.outcome === "stop",
     ),
