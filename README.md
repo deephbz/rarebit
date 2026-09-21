@@ -10,10 +10,11 @@ and visual language can change. It is not a Task, Project, runtime, priority,
 attention, or delivery authority. Native Pi Session JSONL remains the evidence
 authority.
 
-Published alpha.5 repairs Pi 0.84.2 Summary calls by using the active Pi model
-runtime. The injected Pi AI completion path remains the fallback for hosts
-without that runtime registry. npm `next` selects alpha.5 and `latest` remains
-alpha.4. The durable publication evidence is the
+Alpha.6 is an unpublished release candidate. It adds bounded Rarebit fork
+flows, PiQ recovery, machine-only lineage, and Pi-native headroom checks.
+Intended npm routing after publication is `next=alpha.6`; `latest` remains
+`alpha.4`. Published alpha.5 repairs Pi 0.84.2 Summary calls by using the
+active Pi model runtime. Its durable publication evidence is the
 [alpha.5 release receipt](release/v0.1.0-alpha.5-release-receipt.md).
 
 The old alpha.1, alpha.2, and alpha.3 tag graphs remain public and are not
@@ -27,7 +28,7 @@ excluded from npm and does not claim publication completion.
 Use Node 22 or later and Pi 0.83 or later. Install it in Pi from npm:
 
 ```sh
-pi install npm:@hypercarrier/rarebit@0.1.0-alpha.5
+pi install npm:@hypercarrier/rarebit@0.1.0-alpha.6
 pi list
 ```
 
@@ -46,7 +47,7 @@ To use the CLI in a normal Node project, install it and invoke the local bin
 with npm:
 
 ```sh
-npm install @hypercarrier/rarebit@0.1.0-alpha.5
+npm install @hypercarrier/rarebit@0.1.0-alpha.6
 npm exec -- rarebit --help
 ```
 
@@ -61,7 +62,29 @@ npm exec -- rarebit extract --session /absolute/path/to/session.jsonl --json
 ```
 
 The Pi extension adds `/rarebit` controls after installation. It has `status`,
-`config`, `auto-title`, `title`, `summarize`, and `recall` subcommands.
+`config`, `auto-title`, `title`, `summarize`, `recall`, and `fork` subcommands.
+
+`/rarebit fork` validates the newest contiguous Rarebit suffix, writes a new
+Session in Pi's Session store for the current working directory, and switches
+to it without starting a model turn. Use `/rarebit fork --max-token-length 64000` to set the
+imported prose budget. Imported messages keep their roles and source outcomes,
+use zero usage, and carry machine-only lineage. The generated opening message
+records source ID/path/leaf, target directory, coverage, and the read-only PiQ
+recovery command. Legacy source entries retain `(sessionId, sourceOrder)` when
+native entry IDs are absent; Rarebit does not migrate those sources.
+
+The CLI performs the same operation without changing the caller's Session:
+
+```sh
+rarebit fork /absolute/source.jsonl
+rarebit fork /absolute/source.jsonl --max-token-length 64000 --no-launch
+```
+
+The first form launches Pi in the invocation working directory. The second
+returns JSON for automation. Fork mode requires an installed Pi coding-agent
+peer; read-only query, extract, and PiQ commands do not. Use `piq entries
+--session <path>` to read omitted native evidence without writing or migrating
+the source.
 
 ## Model setup and optional derivations
 
@@ -130,7 +153,7 @@ sensitive. Do not put their paths or content in a ticket.
 Pin alpha versions for reproducible installs:
 
 ```sh
-pi install npm:@hypercarrier/rarebit@0.1.0-alpha.5
+pi install npm:@hypercarrier/rarebit@0.1.0-alpha.6
 pi remove npm:@hypercarrier/rarebit
 ```
 

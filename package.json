@@ -1,6 +1,6 @@
 {
   "name": "@hypercarrier/rarebit",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "Sparse, provenance-bearing conversational evidence recovery for Pi sessions.",
   "license": "MIT",
   "author": "HyperCarrier contributors",
@@ -24,7 +24,8 @@
   },
   "types": "./src/types.d.ts",
   "bin": {
-    "rarebit": "./bin/rarebit.mjs"
+    "rarebit": "./bin/rarebit.mjs",
+    "piq": "./bin/piq.mjs"
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
@@ -34,7 +35,16 @@
     "verify:package": "node scripts/verify-package.mjs"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": ">=0.83.0"
+    "@earendil-works/pi-ai": ">=0.83.0",
+    "@earendil-works/pi-coding-agent": ">=0.83.0"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "0.84.2",
@@ -67,6 +77,14 @@
       "types": "./src/types.d.ts",
       "import": "./src/rarebit-artifact-state.mjs"
     },
+    "./fork": {
+      "types": "./src/types.d.ts",
+      "import": "./src/rarebit-fork.mjs"
+    },
+    "./fork-lineage": {
+      "types": "./src/types.d.ts",
+      "import": "./src/rarebit-fork-lineage.mjs"
+    },
     "./visual-language": {
       "types": "./src/types.d.ts",
       "import": "./src/rarebit-visual-language.mjs"
@@ -83,6 +101,7 @@
   },
   "files": [
     "bin/rarebit.mjs",
+    "bin/piq.mjs",
     "src",
     "schemas",
     "scripts",
