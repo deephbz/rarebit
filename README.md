@@ -13,12 +13,13 @@ authority.
 Alpha.6 is an unpublished release candidate. It adds bounded Rarebit fork
 flows, PiQ recovery, machine-only lineage, and Pi-native headroom checks.
 Intended npm routing after publication is `next=alpha.6`; `latest` remains
-`alpha.4`.
+`alpha.4`. Published alpha.5 repairs Pi 0.84.2 Summary calls by using the
+active Pi model runtime. Its durable publication evidence is the
+[alpha.5 release receipt](release/v0.1.0-alpha.5-release-receipt.md).
 
 The old alpha.1, alpha.2, and alpha.3 tag graphs remain public and are not
-privacy-clean. Existing alpha.1 through alpha.4 tags, releases, and npm
-artifacts remain immutable. The source-only candidate derivation and
-vendored-scanner binding is
+privacy-clean. Existing package versions, tags, and releases remain immutable.
+The source-only candidate derivation and vendored-scanner binding is
 [`release/privacy-lineage.v1.json`](release/privacy-lineage.v1.json). It is
 excluded from npm and does not claim publication completion.
 

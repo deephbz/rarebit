@@ -1,7 +1,8 @@
 # Rarebit runbook
 
 This runbook applies to `0.1.0-alpha.6`. This candidate adds bounded fork
-flows, PiQ recovery, machine-only lineage, and Pi-native headroom checks. See
+flows, PiQ recovery, machine-only lineage, and Pi-native headroom checks. The
+published alpha.5 release repaired Pi 0.84.2 Summary calls. See
 [CHANGELOG.md](CHANGELOG.md) for release details.
 
 Set `rarebit.model` in global Pi settings or in a trusted Project's
