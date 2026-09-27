@@ -15,15 +15,16 @@ const required = [
   "package/AGENTS.md", "package/CHANGELOG.md", "package/LICENSE",
   "package/SECURITY.md", "package/bin/rarebit.mjs", "package/bin/piq.mjs",
   "package/src/index.mjs", "package/src/rarebit-fork-lineage.mjs", "package/src/rarebit-fork.mjs", "package/src/types.d.ts",
+  "package/docs/examples/rarebit.settings.json",
   "package/schemas/rarebit.schema.json", "package/test/rarebit-cli.test.mjs",
   "package/scripts/e2e-recall-pi083.mjs", "package/scripts/e2e-recall-pi0842.mjs", "package/scripts/verify-package.mjs",
 ];
 const forbiddenPath = /(^|\/)(\.git|node_modules|\.github|hc-rarebit\.mjs)(\/|$)|HyperCarrier|timeline|pi-team/i;
-const allowedBare = new Set(["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent"]);
+const allowedBare = new Set(["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"]);
 const packageFor = (specifier) => specifier.startsWith("@") ? specifier.split("/").slice(0, 2).join("/") : specifier.split("/")[0];
 const packageJson = JSON.parse(run("git", ["show", "HEAD:package.json"]));
 assert.equal(packageJson.peerDependencies?.["@earendil-works/pi-ai"], ">=0.83.0", "Pi AI peer range mismatch");
-for (const peer of ["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent"])
+for (const peer of ["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"])
   assert.equal(packageJson.peerDependenciesMeta?.[peer]?.optional, true, `${peer} peer must remain optional`);
 
 const suppliedTarball = process.env.RELEASE_TARBALL;

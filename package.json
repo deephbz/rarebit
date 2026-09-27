@@ -36,13 +36,17 @@
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": ">=0.83.0",
-    "@earendil-works/pi-coding-agent": ">=0.83.0"
+    "@earendil-works/pi-coding-agent": ">=0.83.0",
+    "@earendil-works/pi-tui": ">=0.83.0"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-ai": {
       "optional": true
     },
     "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
       "optional": true
     }
   },
@@ -104,6 +108,7 @@
     "bin/piq.mjs",
     "src",
     "schemas",
+    "docs/examples/rarebit.settings.json",
     "scripts",
     "test",
     "README.md",
