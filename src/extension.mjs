@@ -13,6 +13,7 @@ import {
 } from "./rarebit-service.mjs";
 import {
   DEFAULT_RAREBIT_SUMMARY_POLICY,
+  normalizeRarebitSummaryPrompt,
   selectRarebits,
   sha256,
 } from "./rarebit-core.mjs";
@@ -257,8 +258,20 @@ export default function registerPiRarebit(pi, config = {}) {
     const recapToken = recapController.captureMaterialization(ctx);
     let synthesisTriggered = false;
     const effective = await loadEffective(ctx);
+    let summaryPrompt;
+    try {
+      summaryPrompt = normalizeRarebitSummaryPrompt(effective.summaryPrompt).guidance;
+    } catch (error) {
+      notify(
+        ctx,
+        `Invalid rarebit.summary_prompt: ${error?.message ?? error}`,
+        "error",
+      );
+      return { record: { status: "invalid_configuration" } };
+    }
     const result = await processRarebitSummary(ctx, {
       ...effective,
+      summaryPrompt,
       forceSynthesis: force,
       lifecycleBoundary: force ? "manual" : ctx?.lifecycleBoundary,
       queryAutomaticSummaryPolicy:

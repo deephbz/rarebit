@@ -401,9 +401,7 @@ export function createRarebitRecapController({
           displayedReceipts.delete(displayedReceipts.values().next().value);
       }
     };
-    timer = setTimeoutFn(() => {
-      void fire();
-    }, options.recapDelayMs ?? delayMs);
+    timer = setTimeoutFn(fire, options.recapDelayMs ?? delayMs);
     timer?.unref?.();
     return true;
   };

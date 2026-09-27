@@ -153,7 +153,9 @@ preserves its line breaks, and trims only outer whitespace. A blank value
 removes the override. The fixed evidence and JSON status contract remains
 owned by Rarebit. Keep custom guidance to a few short bullets so it leaves room
 for evidence in the configured Summary input budget. The editor rejects unsafe
-control characters and oversized values.
+control characters and guidance longer than 64,000 UTF-16 characters. This
+guidance bound is separate from the 8,000-character Summary output safety
+limit.
 
 Then request explicit model work when you want it:
 
