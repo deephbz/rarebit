@@ -1,113 +1,195 @@
 # Rarebit
 
-`@hypercarrier/rarebit` recovers decision-bearing conversational evidence from
-one persisted Pi Session. It deterministically selects readable user messages
-and assistant continuation or stop prose on the active branch. It excludes tool
-payloads, tool results, and hidden reasoning.
+[![Rarebit: catch up on a long Pi session](https://raw.githubusercontent.com/deephbz/rarebit/main/brand/assets/banner.svg)](https://deephbz.github.io/rarebit)
 
-Rarebit is public alpha software. Its CLI output, exports, sidecar protocol,
-and visual language can change. It is not a Task, Project, runtime, priority,
-attention, or delivery authority. Native Pi Session JSONL remains the evidence
-authority.
+**[Rarebit website](https://deephbz.github.io/rarebit)**
 
-Rarebit is released from an immutable version tag by
-[`.github/workflows/publish.yml`](.github/workflows/publish.yml). The workflow
-runs the package gates, verifies one packed artifact, scans that artifact, and
-publishes it with npm provenance. Install the exact version required by your
-Pi host.
+Rarebit helps you catch up on a long Pi session without rereading its tool
+traffic. It selects original messages from the active branch so you can read the
+conversation, ask an agent to use it, or start a focused new Session. The
+original Pi Session stays intact.
 
-The old alpha.1, alpha.2, and alpha.3 tag graphs remain public and are not
-privacy-clean. Existing package versions, tags, and releases remain immutable.
-The source-only candidate derivation and vendored-scanner binding is
-[`release/privacy-lineage.v1.json`](release/privacy-lineage.v1.json). It is
-excluded from npm and does not claim publication completion.
+Rarebit is public alpha software. Its CLI output, exports, sidecar protocol, and
+visual language can change.
 
-## Install
+## Start here
 
-Use Node 22 or later and Pi 0.83 or later. Install it in Pi from npm:
+Three outcomes cover the useful path:
+
+- **Catch up** — read selected conversational prose from the active branch.
+- **Recall** — let an agent read that same selection for one request.
+- **Fork** — start a fresh native Pi Session from a bounded newest suffix.
+
+Install Rarebit and make the first deterministic, zero-model extraction:
 
 ```sh
+# In a shell, install the extension in Pi, then restart Pi to load it.
 pi install npm:@hypercarrier/rarebit@0.2.0
-pi list
-```
 
-For a local checkout, Pi loads a directory without copying it:
-
-```sh
-pi install /absolute/path/to/rarebit
-pi list
-```
-
-The package imports Pi's bundled `@earendil-works/pi-ai` as a peer dependency.
-Do not install or bundle a second Pi core. Pi packages execute with your user
-permissions, so review source before installation.
-
-To use the CLI in a normal Node project, install it and invoke the local bin
-with npm:
-
-```sh
+# Install the CLI in the Node project where you will run it.
 npm install @hypercarrier/rarebit@0.2.0
-npm exec -- rarebit --help
+npm exec -- rarebit extract \
+  --session /absolute/path/to/session.jsonl --json > selected-prose.json
 ```
 
-## First query and extract
+Replace the example path with an exact Pi Session JSONL path or supported Session
+identifier. Pi normally stores Session JSONL below `~/.pi/agent/sessions/`.
+Open `selected-prose.json` to catch up on the conversation. Then
+choose Recall or Fork when you need an agent request or a fresh Session.
 
-Give the CLI an exact Session JSONL path or supported Pi Session identifier.
-`query` returns metadata only. `extract` returns selected raw Session prose.
+Summary and Title are optional model-derived projections. Recap only displays
+an existing Summary in the Pi TUI.
+
+## The product in one view
+
+```text
+long Pi Session
+  └─ Distill: selected active-branch prose
+       ├─ Catch up: read the conversation
+       ├─ Recall: let an agent use the selection for one request
+       ├─ Fork: start a new native Pi Session from a bounded suffix
+       └─ Summary / Title: optional model-derived projections
+            └─ Recap: show an existing Summary in the Pi TUI
+```
+
+### 1. Catch up and distill
+
+Rarebit selects these occurrences from one exact active branch:
+
+- readable user messages;
+- assistant prose at a continuation boundary;
+- assistant prose at a normal stop boundary.
+
+It excludes tool-call inputs, tool results, hidden reasoning, and transport
+records. Selection is deterministic. It is not model summarization. Each
+selected occurrence keeps its source entry, branch position, role, outcome,
+timestamp when available, and lineage.
+
+### 2. Recall for the agent
+
+In Pi, run:
+
+```text
+/rarebit recall What decisions and open questions should guide the next turn?
+```
+
+Recall writes a private conversation view and a detailed lineage view, then
+sends one user-message envelope with your request and both file references. The
+agent reads those referenced files through its configured model provider. The
+files are private on local disk, but Rarebit makes no provider-privacy claim;
+apply your provider's policy. An idle Pi starts one turn. A busy Pi queues one
+steering message. Recall does not create a durable Recall record or a second
+follow-up message.
+
+For agent workflows outside the Pi TUI, use the CLI's `extract` operation. It
+is the CLI catch-up interface; there is no CLI `recall` command:
 
 ```sh
-npm exec -- rarebit query --session /absolute/path/to/session.jsonl --json
-npm exec -- rarebit extract --session /absolute/path/to/session.jsonl --json
+npm exec -- rarebit extract \
+  --session /absolute/path/to/session.jsonl --json > selected-prose.json
 ```
 
-The Pi extension adds one `/rarebit` parent command. In the TUI, the bare
-command opens an action palette. `/rarebit settings` opens a tabbed editor
-with Actions, Summary, Recap, and Session sections. Choose global settings or
-a trusted Project override; each field shows its effective value and source.
-Edits require Save confirmation. Blank input or Remove override restores
-inheritance. Settings apply to future operations; disabling automatic Recap
-also clears its pending or visible widget.
+Treat that output as sensitive. It contains selected raw prose.
 
-Direct `help`, `status`, `settings`, `config`, `auto-title`, `title`, `recap`,
-`summarize`, `recall`, and `fork` subcommands remain available. Use
-`/rarebit settings global` or `/rarebit settings project` to choose the editing
-scope directly. `recap` reads the current Summary receipt and renders the
-complete multiline Summary in the TUI. It never starts synthesis.
+### 3. Fork as a distilled native fork
 
-`/rarebit fork` validates the newest contiguous Rarebit suffix, writes a new
-Session in Pi's Session store for the current working directory, and switches
-to it without starting a model turn. Use `/rarebit fork --max-token-length 64000` to set the
-imported prose budget. Imported messages keep their roles and source outcomes,
-use zero usage, and carry machine-only lineage. The generated opening message
-records source ID/path/leaf, target directory, coverage, and the read-only PiQ
-recovery command. Legacy source entries retain `(sessionId, sourceOrder)` when
-native entry IDs are absent; Rarebit does not migrate those sources.
+Fork creates a new native Pi Session from the newest contiguous suffix of the
+selected active-branch prose. It does not summarize, deduplicate, or modify the
+source. It does not start a model turn and does not transfer mutable Team, Task,
+subscription, or extension state.
 
-The CLI performs the same operation without changing the caller's Session:
+In Pi:
+
+```text
+/rarebit fork
+```
+
+From a shell, use the exact source Session path or ID:
 
 ```sh
-rarebit fork /absolute/source.jsonl
-rarebit fork /absolute/source.jsonl --max-token-length 64000 --no-launch
+npm exec -- rarebit fork /absolute/path/to/session.jsonl
+npm exec -- rarebit fork /absolute/path/to/session.jsonl \
+  --max-token-length 64000 --no-launch --json
 ```
 
-The first form launches Pi in the invocation working directory. The second
-returns JSON for automation. Fork mode requires an installed Pi coding-agent
-peer; read-only query, extract, and PiQ commands do not. Use `piq entries
---session <path>` to read omitted native evidence without writing or migrating
-the source.
+The default import budget is 64,000 estimated tokens. Fork keeps whole
+occurrences in branch order. If the newest occurrence cannot fit, it refuses
+with an actionable error. The new Session contains machine-readable source
+lineage and a recovery route. It does not promise complete context transfer.
 
-## Model setup and optional derivations
+Use `piq` to inspect source evidence that the bounded fork omitted:
 
-Summary and Title use a dedicated configured model. They never inherit Pi's
-interactive `defaultModel`. Start with
-[the example config](docs/examples/rarebit.settings.json). Merge its `rarebit`
-object into global Pi settings (`~/.pi/agent/settings.json`, or
-`$PI_CODING_AGENT_DIR/settings.json` when set), or a trusted project's
-`.pi/settings.json`. Preserve other settings and select a model available
-through your authenticated provider. The example includes all Pi extension
-settings with their defaults; its model is an example choice.
+```sh
+npm exec -- piq entries --session /absolute/path/to/session.jsonl
+```
 
-The configuration shape is:
+PiQ is read-only JSONL output for `jq`. It does not classify Rarebits, mutate a
+Session, invoke a model, or migrate legacy entries.
+
+### 4. Summary, Title, and Recap
+
+Summary and Title are optional derivations over the selected evidence. Recap is
+a presentation of an existing Summary, not a derivation.
+
+- **Summary** is a lossy, model-derived Session assessment. It can describe
+  what appears finished or needs attention in the selected prose. It is not
+  proof of completed work.
+- **Title** is a mutable label proposal derived from a suitable user message.
+- **Recap** presents the current Summary in the Pi TUI. It reads an existing
+  receipt and does not generate a Summary.
+
+Use the Pi commands for a derivation or presentation:
+
+```text
+/rarebit summarize
+/rarebit title
+/rarebit recap
+```
+
+The CLI exposes the same model operations for an exact Session:
+
+```sh
+npm exec -- rarebit summarize \
+  --session /absolute/path/to/session.jsonl --json --force
+npm exec -- rarebit title \
+  --session /absolute/path/to/session.jsonl --json
+```
+
+Summary and Title need a configured model. Query, extract, and PiQ inspection
+do not need a model. Fork creation needs an installed Pi peer and a resolvable
+target model context, but it does not invoke that model or start a turn.
+
+## Continue from the first result
+
+1. Install the pinned npm package in Pi and restart Pi. For a local checkout,
+   use `pi install /absolute/path/to/rarebit`.
+2. Read or automate against `selected-prose.json`. The deterministic path works
+   without a model.
+3. Run `/rarebit recall <request>` when the agent should read selected earlier
+   conversation for one request.
+4. Use `/rarebit fork` when a bounded, fresh Session is more useful than
+   continuing the original one.
+5. Add model configuration only when you need Summary or Title.
+
+The package uses Pi's bundled `@earendil-works/pi-ai` peer. Do not install or
+bundle a second Pi core. Pi packages run with your user permissions. Review
+source before installation. Use `npm install @hypercarrier/rarebit@0.2.0` and
+`npm exec -- rarebit --help` when you use the CLI from a normal Node project.
+
+## Scope and source
+
+Native Pi Session JSONL remains the evidence authority. Rarebit does not own
+Task, Project, runtime, priority, attention, or delivery state. A Summary is a
+lossy Session assessment, not proof of completed Task or Project work. A Title
+is a label proposal, and Recap only presents the current Summary.
+
+## Configure optional derivations
+
+Copy the example from
+[`docs/examples/rarebit.settings.json`](docs/examples/rarebit.settings.json)
+into the `rarebit` object in global Pi settings
+(`~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when set)
+or a trusted Project's `.pi/settings.json`. Preserve other settings.
 
 ```json
 {
@@ -117,7 +199,7 @@ The configuration shape is:
     "max_rarebit_ratio": 0.4,
     "auto_title": true,
     "max_input_tokens": 64000,
-    "summary_prompt": "The summary is free-form prose. State when evidence is uncertain, confusing, contradictory, or importantly missing instead of inventing a coherent account.",
+    "summary_prompt": "State when evidence is uncertain, confusing, contradictory, or importantly missing.",
     "diagnostics": {
       "summary_triggered": false,
       "summary_updated": false
@@ -131,106 +213,113 @@ The configuration shape is:
 }
 ```
 
-After a successful automatic or explicit Summary materialization, the Pi TUI
-offers the current Summary above the editor after one minute. The offer stays
-visible while you type and clears when Pi sends input, starts a new turn,
-changes Session or branch, or shuts down. Set `rarebit.recap.enabled` to
-`false` to disable the offer, or change `rarebit.recap.delay_ms` to adjust the
-delay. Set `rarebit.recap.timezone` to `host` or an IANA time zone such as
-`Asia/Hong_Kong` to format the Recap header. The header identifies the host
-zone or selected IANA zone and its offset at the observation time. The widget
-reads an existing receipt and never adds a Session message. In the Pi extension,
-`max_input_tokens` limits the Summary prompt by the existing
-`ceil(prompt characters / 4)` estimate. It
-defaults to 64,000 estimated input tokens and is not a provider output limit.
-Summary trigger and update notifications stay off unless
-`rarebit.diagnostics.summary_triggered` or
-`rarebit.diagnostics.summary_updated` is enabled.
+Set `model` to a model available through your authenticated provider. Rarebit
+uses this model for Summary and Title; it does not inherit Pi's interactive
+`defaultModel`.
 
-`rarebit.summary_prompt` is one scalar guidance string. It uses the default
-guidance shown in the example when omitted. The editor accepts multiline text,
-preserves its line breaks, and trims only outer whitespace. A blank value
-removes the override. The fixed evidence and JSON status contract remains
-owned by Rarebit. Keep custom guidance to a few short bullets so it leaves room
-for evidence in the configured Summary input budget. The editor rejects unsafe
-control characters and guidance longer than 64,000 UTF-16 characters. This
-guidance bound is separate from the 8,000-character Summary output safety
-limit.
+Use `/rarebit settings` to edit the dedicated namespace. The editor supports
+global settings and a trusted Project override. Settings apply to future
+operations. The `summary_prompt` value changes Summary format and length, but
+Rarebit still owns evidence handling and the structured status contract.
 
-Then request explicit model work when you want it:
+Automatic Summary work runs only at eligible persisted direct-input or settled-
+agent boundaries. It also requires the configured minimum estimated Session
+length and maximum selected-prose ratio. A Pi Session start does not trigger
+synthesis. Explicit `/rarebit summarize` or `rarebit summarize --force` remains
+available.
 
-```sh
-npm exec -- rarebit summarize --session /absolute/path/to/session.jsonl --json --force
-npm exec -- rarebit title --session /absolute/path/to/session.jsonl --json
-```
+After successful materialization, Recap can offer the current Summary in the Pi
+TUI after one minute by default. The offer stays visible while you type and
+clears when Pi sends input, starts a new turn, changes Session or branch, or
+shuts down. Set `rarebit.recap.enabled` to `false`, change `delay_ms`, or set
+`timezone` to `host` or an IANA zone such as `Asia/Hong_Kong`.
 
-A Summary is a lossy assessment of an identified selection. It can report only
-Session-scoped appearance, not completed Project or Task work. A Title is a
-mutable label proposal, not Session identity. Automatic Summary work runs only
-at persisted direct-input or settled-agent boundaries and only when its policy
-permits it.
+## Privacy and local data
 
-## Privacy, local data, and provider egress
+- Rarebit reads native Pi Session JSONL locally. Fork writes a new target
+  Session but never modifies the source Session.
+- `query` returns metadata and selected occurrence identifiers. `extract`
+  returns selected raw prose on demand.
+- Summary and Title send selected prose to the provider and model you
+  configure. If the input exceeds `max_input_tokens`, Rarebit sends a newest
+  suffix with an explicit omission marker and coverage record.
+- Rarebit does not send tool inputs, tool results, hidden reasoning, provider
+  credentials, or HTTP headers as Rarebit content.
+- Derived receipts live below
+  `~/.pi/agent/rarebit/materializations-v4/`. Job leases live below
+  `~/.pi/agent/rarebit/jobs-v4/`. These directories use mode `0700`; their
+  files use mode `0600`.
+- Receipts retain compact metadata, not selected prose, prompts, provider
+  response bodies, headers, or credentials. Receipts remain until you remove
+  them.
+- Recall files are private OS-temporary JSON files. They contain selected
+  content and lineage and remain until you delete them after the turn no longer
+  needs them. The persisted Pi user message and both files are sensitive.
 
-Rarebit reads Pi Session JSONL locally and does not modify it. `extract` prints
-selected raw prose, so handle its output as sensitive.
-
-Summary and Title send selected Rarebit prose to the provider and model that you
-configure. When input exceeds the fixed limit, Rarebit sends a newest suffix
-with an explicit omission marker. It does not send tool inputs, tool results,
-hidden reasoning, provider credentials, or HTTP headers as Rarebit content.
-
-Derived receipts live below `~/.pi/agent/rarebit/materializations-v4/`; job
-leases live below `~/.pi/agent/rarebit/jobs-v4/`. These directories use mode
-0700 and their files use mode 0600. Receipts retain compact metadata but no
-selected prose, prompt, provider response body, headers, or credentials. They
-remain until you remove them. Session JSONL retention is controlled by Pi.
-
-## First Recall
-
-Run `/rarebit recall <prompt>` in a Pi Session. Rarebit writes the exact active
-branch selection to two private files: a conversation view and detailed
-lineage evidence. It then sends one atomic, human-readable Markdown user
-message containing your exact request and absolute pointers to both files.
-
-When Pi is idle, that message starts one turn. When Pi is busy, it queues one
-steering message. Recall does not send a second follow-up, add a custom Session
-entry, or create a durable Recall receipt.
-
-The temporary directory is mode 0700 and its JSON files are mode 0600. The
-files remain after the request so Pi can read them; delete the directory after
-the turn no longer needs it. Both files and the persisted Pi message are
-sensitive. Do not put their paths or content in a ticket.
+Pi controls Session JSONL retention. Do not put Session prose, credentials,
+Recall files, or private paths in public issues.
 
 ## Update, uninstall, and rollback
 
-Pin a version for reproducible installs:
+Pin a version when you need reproducible installs:
 
 ```sh
 pi install npm:@hypercarrier/rarebit@0.2.0
 pi remove npm:@hypercarrier/rarebit
 ```
 
-The exact-version install also moves an existing Rarebit npm installation to
-that pin. Pi skips versioned npm sources during package updates. Restart Pi
-after installation to load the new extension code.
+A versioned npm install moves an existing Rarebit npm source to that pin. Pi
+skips versioned npm sources during package updates. Restart Pi after an install
+to load new extension code.
 
-To roll back, reinstall a known version with `pi install npm:@hypercarrier/rarebit@<version>`.
+To roll back, reinstall a known version:
+
+```sh
+pi install npm:@hypercarrier/rarebit@<version>
+```
+
 Removal stops package loading. It does not alter Pi Session JSONL or delete
-Rarebit sidecars, job leases, or Recall temp files. Remove retained local data
-only after you review it.
+Rarebit sidecars, job leases, or Recall temporary files. Review retained local
+data before removing it.
+
+If you need source evidence after a fork or a bounded extraction, use the
+read-only PiQ command:
+
+```sh
+npm exec -- piq entries --session /absolute/path/to/session.jsonl
+```
+
+For sidecar locks, leases, and recovery details, see [`RUNBOOK.md`](RUNBOOK.md).
 
 ## Compatibility and support
 
-Rarebit supports Node 22+ and Pi 0.83.0 or later. Its Pi AI peer has no
-upper bound. The release gate runs Recall against Pi 0.83.0 and Pi 0.84.2. It
+Rarebit supports Node 22+ and Pi 0.83.0 or later. Its Pi AI peer has no upper
+bound. The release gate runs Recall against Pi 0.83.0 and Pi 0.84.2. Rarebit
 works as a deterministic CLI without a model. Summary, Title, and the Pi
 extension require a compatible Pi installation and configured provider
 credentials.
 
-Report security issues privately as described in [SECURITY.md](SECURITY.md).
-Use https://github.com/deephbz/rarebit/issues for normal support. Include no
-Session prose, credentials, or Recall files in public reports.
+Report security issues privately as described in [`SECURITY.md`](SECURITY.md).
+Use [GitHub Issues](https://github.com/deephbz/rarebit/issues) for normal
+support. Include no Session prose, credentials, or Recall files in public
+reports.
 
-See [RUNBOOK.md](RUNBOOK.md) for recovery and sidecar details, and
-[VISUAL-LANGUAGE.md](VISUAL-LANGUAGE.md) for evidence-mark meaning.
+## Release and source history
+
+Rarebit is released from an immutable version tag by
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml). The workflow
+runs package gates, verifies one packed artifact, scans that artifact, and
+publishes it with npm provenance.
+
+The old `alpha.1`, `alpha.2`, and `alpha.3` tag graphs remain public and are not
+privacy-clean. Existing package versions, tags, and releases remain immutable.
+The source-only candidate derivation and vendored-scanner binding is
+[`release/privacy-lineage.v1.json`](release/privacy-lineage.v1.json). It is
+excluded from npm and does not claim publication completion.
+
+More detail:
+
+- [Visual language](VISUAL-LANGUAGE.md) defines evidence marks and Summary
+  presentation.
+- [Runbook](RUNBOOK.md) covers operator recovery and sidecars.
+- [Rarebit website](https://deephbz.github.io/rarebit) introduces the product.

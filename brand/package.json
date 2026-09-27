@@ -1,0 +1,9 @@
+{
+  "name": "rarebit-brand-build",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "opentype.js": "1.3.4"
+  }
+}

@@ -1,0 +1,48 @@
+name: Publish Rarebit site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "brand/**"
+      - "src/rarebit-visual-language.mjs"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install brand build dependencies
+        run: npm ci --prefix brand
+      - name: Check tracked brand assets
+        run: node brand/build-assets.mjs --check
+      - name: Build site output
+        run: node brand/build-assets.mjs --site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: brand/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,3 +1,19 @@
 node_modules/
 *.tgz
 .DS_Store
+
+# Reproducible promo renders stay outside the source bundle.
+brand/promo-video/node_modules/
+brand/promo-video/out/
+brand/promo-video/frames/
+brand/promo-video/audio/
+brand/promo-video/*.mp4
+brand/promo-video/*.wav
+brand/promo-video/*.png
+
+# Pages build output is regenerated from the tracked site source.
+brand/site/assets/
+brand/site/fonts/
+brand/site/index.html
+brand/site/brand-data.js
+brand/site/video-config.js
