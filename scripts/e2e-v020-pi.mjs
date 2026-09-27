@@ -210,6 +210,8 @@ export default function registerFixtureRarebit(pi) {
   assert.doesNotMatch(widgetPane, /recap expand/i);
   assert.match(widgetAnsi, /\x1b\[[0-9;]*m/);
   assert.match(widgetAnsi, /Recap/);
+  assert.match(widgetAnsi, /\x1b\[38;5;241m[^\n]*Recap/, "Recap header uses the muted foreground");
+  assert.match(widgetAnsi, /\x1b\[38;5;244m[^\n]*FULL_RECAP_TAIL_1/, "Recap body uses the faded foreground");
   assert.ok(Date.now() - summaryAt >= 59_750, "Recap rendered before the one-minute default");
 
   const requestCountAtWidget = requests.length;
