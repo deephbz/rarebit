@@ -71,8 +71,8 @@ also clears its pending or visible widget.
 Direct `help`, `status`, `settings`, `config`, `auto-title`, `title`, `recap`,
 `summarize`, `recall`, and `fork` subcommands remain available. Use
 `/rarebit settings global` or `/rarebit settings project` to choose the editing
-scope directly. `recap` reads the current Summary receipt and renders it in
-the TUI; `recap expand` renders the full Summary. Neither form starts synthesis.
+scope directly. `recap` reads the current Summary receipt and renders the
+complete multiline Summary in the TUI. It never starts synthesis.
 
 `/rarebit fork` validates the newest contiguous Rarebit suffix, writes a new
 Session in Pi's Session store for the current working directory, and switches

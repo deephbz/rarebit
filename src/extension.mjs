@@ -750,7 +750,6 @@ ${fence(requestText)}`;
           return;
         }
         const recap = await recapController.showExisting(ctx, {
-          expanded: rest[0] === "expand",
           sessionRoot: effective.sessionRoot,
           rarebitRoot: effective.rarebitRoot,
           recapTimezone: effective.recap?.timezone,

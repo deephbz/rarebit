@@ -91,7 +91,7 @@ export const RAREBIT_COMMAND_GRAMMAR = Object.freeze({
     {
       name: "recap",
       description: "Show the current Recap in the TUI",
-      forms: [[], [literal("expand", "Show the full current Recap")]],
+      forms: [[]],
     },
     {
       name: "summarize",

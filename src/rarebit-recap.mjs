@@ -86,22 +86,31 @@ function observedAtLabel(observedAt, timezone) {
   return `${dateText} (${zoneLabel}${zoneText ? `, ${zoneText}` : ""})`;
 }
 
-function summaryLines(
+let recapWidgetComponents;
+
+async function loadRecapWidgetComponents() {
+  if (!recapWidgetComponents) {
+    recapWidgetComponents = Promise.all([
+      import("@earendil-works/pi-tui"),
+      import("@earendil-works/pi-coding-agent"),
+    ]).then(([tui, agent]) => ({
+      Container: tui.Container,
+      Text: tui.Text,
+      DynamicBorder: agent.DynamicBorder,
+    }));
+  }
+  return recapWidgetComponents;
+}
+
+function summaryContent(
   receipt,
-  { expanded = false, timezone = DEFAULT_RAREBIT_RECAP_TIMEZONE } = {},
+  { timezone = DEFAULT_RAREBIT_RECAP_TIMEZONE } = {},
 ) {
   const presentation = rarebitSummaryPresentation(receipt.sessionStatus);
   const mark = presentation.mark ? `${presentation.mark} ` : "";
   const heading = `${mark}Recap · ${presentation.label} · as of ${observedAtLabel(receipt.observedAt, timezone)}`;
   const summary = String(receipt.summary ?? "").trim();
-  if (expanded) return [heading, summary];
-  const preview = summary.replace(/\s+/g, " ").trim();
-  if (preview.length <= 180) return [heading, preview];
-  return [
-    heading,
-    `${preview.slice(0, 177).trimEnd()}…`,
-    "Use /rarebit recap expand to show the full Summary.",
-  ];
+  return { heading, summary };
 }
 
 function currentContextOptions(ctx, options) {
@@ -230,20 +239,73 @@ export function createRarebitRecapController({
     return receipt;
   };
 
-  const display = (
+  const display = async (
     ctx,
     receipt,
-    { expanded = false, timezone = recapTimezone } = {},
+    { timezone = recapTimezone, token, expectedOfferEpoch } = {},
   ) => {
     const target = tuiContext(ctx);
     if (!target || !receiptAppliesToContext(receipt, ctx)) return false;
+    const observedControllerGeneration = controllerGeneration;
+    const observedLifecycleGeneration = liveLifecycleGeneration;
+    const observedOfferEpoch = expectedOfferEpoch ?? offerEpoch;
+    const observedIdentity = sessionIdentity(ctx);
     try {
+      const components = await loadRecapWidgetComponents();
+      if (
+        observedControllerGeneration !== controllerGeneration ||
+        observedLifecycleGeneration !== liveLifecycleGeneration ||
+        observedOfferEpoch !== offerEpoch ||
+        (token && !tokenIsCurrent(token)) ||
+        !sameIdentity(observedIdentity, sessionIdentity(liveContext)) ||
+        !receiptAppliesToContext(receipt, liveContext)
+      )
+        return false;
+      const content = summaryContent(receipt, {
+        timezone: normalizeRarebitRecapTimezone(timezone),
+      });
       target.ui.setWidget(
         RAREBIT_RECAP_WIDGET_KEY,
-        summaryLines(receipt, {
-          expanded,
-          timezone: normalizeRarebitRecapTimezone(timezone),
-        }),
+        (_tui, theme) => {
+          const border = (text) => theme.fg("borderMuted", text);
+          const widget = new components.Container();
+          const heading = new components.Text("", 1, 0);
+          const summary = new components.Text("", 1, 0);
+          let previousHeading;
+          let previousSummary;
+          const themed = (text, color, component, previous) => {
+            const rendered = theme.fg(color, text);
+            if (rendered !== previous.value) {
+              previous.value = rendered;
+              component.setText(rendered);
+            }
+          };
+          const themedHeading = {
+            render: (width) => {
+              themed(content.heading, "dim", heading, previousHeading ??= {});
+              return heading.render(width);
+            },
+            invalidate: () => {
+              previousHeading = undefined;
+              heading.invalidate();
+            },
+          };
+          const themedSummary = {
+            render: (width) => {
+              themed(content.summary, "muted", summary, previousSummary ??= {});
+              return summary.render(width);
+            },
+            invalidate: () => {
+              previousSummary = undefined;
+              summary.invalidate();
+            },
+          };
+          widget.addChild(new components.DynamicBorder(border));
+          widget.addChild(themedHeading);
+          widget.addChild(themedSummary);
+          widget.addChild(new components.DynamicBorder(border));
+          return widget;
+        },
         { placement: "aboveEditor" },
       );
       return true;
@@ -252,7 +314,7 @@ export function createRarebitRecapController({
     }
   };
 
-  const showExisting = async (ctx, { expanded = false, ...options } = {}) => {
+  const showExisting = async (ctx, options = {}) => {
     controllerGeneration += 1;
     cancelTimer();
     updateContext(ctx);
@@ -271,9 +333,9 @@ export function createRarebitRecapController({
       return { shown: false, reason: "no_current_summary" };
     }
     return {
-      shown: display(ctx, receipt, {
-        expanded,
+      shown: await display(ctx, receipt, {
         timezone: options.timezone ?? options.recapTimezone ?? recapTimezone,
+        expectedOfferEpoch: observedOfferEpoch,
       }),
       reason: "current_summary",
       receipt,
@@ -326,14 +388,14 @@ export function createRarebitRecapController({
       )
         return;
       if (!receipt || receipt.jobId !== offerState.record.jobId) return;
-      if (
-        display(current, receipt, {
-          timezone:
-            offerState.options.timezone ??
-            offerState.options.recapTimezone ??
-            recapTimezone,
-        })
-      ) {
+      if (await display(current, receipt, {
+        token: offerState.token,
+        expectedOfferEpoch: offerState.offerEpoch,
+        timezone:
+          offerState.options.timezone ??
+          offerState.options.recapTimezone ??
+          recapTimezone,
+      })) {
         displayedReceipts.add(offerState.key);
         if (displayedReceipts.size > 128)
           displayedReceipts.delete(displayedReceipts.values().next().value);
