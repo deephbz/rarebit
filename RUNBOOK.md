@@ -11,6 +11,13 @@ Set `rarebit.model` in global Pi settings or in a trusted Project's
 and `id`. Rarebit fails closed when it is missing or invalid. It does not use
 Pi's interactive `defaultModel`.
 
+Use `/rarebit settings` to edit the dedicated namespace. `summary_prompt`
+changes the Summary text's format and length; the evidence and structured
+status rules remain fixed. Remove the override to restore the built-in prompt.
+If a response exceeds the 8,000-character safety limit, request a shorter
+Summary in the prompt and run `/rarebit summarize` again. Oversized output
+fails explicitly instead of producing a cut-off Recap.
+
 Install or move this package to an exact version with
 `pi install npm:@hypercarrier/rarebit@<version>`. Pi treats versioned npm
 sources as pinned, so package update commands skip it. Run `pi remove

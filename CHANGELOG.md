@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 — 2026-09-27
+
+- Add the `/rarebit` action palette and tabbed `/rarebit settings` editor.
+- Add a configurable `summary_prompt` for Summary format and length. Preserve
+  paragraphs and bullets; reject oversized output instead of silently cutting it.
+- Show the complete Recap in a muted, labelled TUI section. Remove
+  `/rarebit recap expand`.
+- Keep Recap outside Session messages and model context. Typing preserves it;
+  submitted input, new turns, and Session or branch changes clear it.
+- Default Summary diagnostics to off, support host or explicit IANA timezones,
+  and expose the estimated Summary input budget in settings.
+- Include a complete example config in `docs/examples/rarebit.settings.json`.
+
 ## 0.1.0-alpha.6 — 2026-09-21
 
 - Add bounded `/rarebit fork` and CLI fork flows with native Pi headroom checks.
@@ -7,9 +20,6 @@
   activity exclusion for imported entries.
 - Keep read-only package commands usable without optional Pi host peers; fork
   runtime loads the Pi adapter only when needed.
-
-This is an unpublished release candidate. Intended npm routing after
-publication is `next=alpha.6`; `latest` remains `alpha.4`.
 
 ## 0.1.0-alpha.5 — 2026-08-16
 

@@ -27,7 +27,7 @@ excluded from npm and does not claim publication completion.
 Use Node 22 or later and Pi 0.83 or later. Install it in Pi from npm:
 
 ```sh
-pi install npm:@hypercarrier/rarebit@0.1.0-alpha.6
+pi install npm:@hypercarrier/rarebit@0.2.0
 pi list
 ```
 
@@ -202,17 +202,16 @@ sensitive. Do not put their paths or content in a ticket.
 
 ## Update, uninstall, and rollback
 
-Pin alpha versions for reproducible installs:
+Pin a version for reproducible installs:
 
 ```sh
-pi install npm:@hypercarrier/rarebit@0.1.0-alpha.6
+pi install npm:@hypercarrier/rarebit@0.2.0
 pi remove npm:@hypercarrier/rarebit
 ```
 
 The exact-version install also moves an existing Rarebit npm installation to
-that pin. Pi skips versioned npm sources during package updates. Do not use an
-unpinned source for alpha.5 recovery: unpinned npm resolution follows the
-retained `latest`, which remains alpha.4.
+that pin. Pi skips versioned npm sources during package updates. Restart Pi
+after installation to load the new extension code.
 
 To roll back, reinstall a known version with `pi install npm:@hypercarrier/rarebit@<version>`.
 Removal stops package loading. It does not alter Pi Session JSONL or delete
@@ -221,7 +220,7 @@ only after you review it.
 
 ## Compatibility and support
 
-This alpha supports Node 22+ and Pi 0.83.0 or later. Its Pi AI peer has no
+Rarebit supports Node 22+ and Pi 0.83.0 or later. Its Pi AI peer has no
 upper bound. The release gate runs Recall against Pi 0.83.0 and Pi 0.84.2. It
 works as a deterministic CLI without a model. Summary, Title, and the Pi
 extension require a compatible Pi installation and configured provider
