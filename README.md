@@ -46,7 +46,7 @@ To use the CLI in a normal Node project, install it and invoke the local bin
 with npm:
 
 ```sh
-npm install @hypercarrier/rarebit@0.1.0-alpha.6
+npm install @hypercarrier/rarebit@0.2.0
 npm exec -- rarebit --help
 ```
 
