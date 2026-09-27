@@ -72,6 +72,12 @@ jobs:
         run: npm run verify:package
         env:
           RELEASE_TARBALL: ${{ env.RELEASE_TARBALL }}
+      - name: Install terminal test dependency
+        run: command -v tmux || { sudo apt-get update && sudo apt-get install -y tmux; }
+      - name: Verify packed Recap in native Pi
+        run: npm run test:e2e:tui
+        env:
+          RAREBIT_PACKAGE_TGZ: ${{ env.RELEASE_TARBALL }}
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
