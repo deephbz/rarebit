@@ -17,8 +17,23 @@ const rest = (usage) => ({
 
 export const RAREBIT_COMMAND_GRAMMAR = Object.freeze({
   name: "rarebit",
-  defaultSubcommand: "status",
+  defaultSubcommand: "menu",
   subcommands: Object.freeze([
+    {
+      name: "menu",
+      description: "Open the interactive Rarebit command palette",
+      forms: [[]],
+    },
+    {
+      name: "settings",
+      description: "Open interactive Rarebit settings",
+      forms: [[], [literal("global", "Edit global Pi settings")], [literal("project", "Edit trusted project settings")]],
+    },
+    {
+      name: "help",
+      description: "Show Rarebit command help",
+      forms: [[]],
+    },
     {
       name: "status",
       description: "Show effective Rarebit configuration",
@@ -72,6 +87,11 @@ export const RAREBIT_COMMAND_GRAMMAR = Object.freeze({
       description: "Generate a title for the active Session",
       usageNote: "use Pi's native /name for a literal title",
       forms: [[]],
+    },
+    {
+      name: "recap",
+      description: "Show the current Recap in the TUI",
+      forms: [[], [literal("expand", "Show the full current Recap")]],
     },
     {
       name: "summarize",

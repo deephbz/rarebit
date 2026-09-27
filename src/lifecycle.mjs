@@ -16,7 +16,12 @@ function messageText(event) {
     .join("\n");
 }
 
-function snapshotMaterializationContext(ctx, mayNotify, lifecycleBoundary) {
+function snapshotMaterializationContext(
+  ctx,
+  mayNotify,
+  lifecycleBoundary,
+  rarebitLifecycleGeneration,
+) {
   const sessionManager = ctx?.sessionManager;
   const header = sessionManager?.getHeader?.();
   const branch = sessionManager?.getBranch?.();
@@ -39,6 +44,7 @@ function snapshotMaterializationContext(ctx, mayNotify, lifecycleBoundary) {
     modelRegistry: ctx?.modelRegistry,
     sessionId: ctx?.sessionId,
     lifecycleBoundary,
+    rarebitLifecycleGeneration,
     isProjectTrusted: () => projectTrusted,
     sessionManager: {
       getHeader: () => header,
@@ -126,6 +132,7 @@ export function registerRarebitLifecycle(pi, schedule, options = {}) {
   let ownerMessageSeen = false;
   let sessionGeneration = 0;
   let sessionLive = false;
+  let rarebitLifecycleGeneration = 0;
   const MAX_PENDING_INPUT_ORIGINS = 256;
 
   const clearInputOrigins = () => {
@@ -169,7 +176,8 @@ export function registerRarebitLifecycle(pi, schedule, options = {}) {
   };
 
   pi.on("session_start", (_event, ctx) => {
-    options.onSessionStart?.(ctx);
+    rarebitLifecycleGeneration += 1;
+    options.onSessionStart?.(ctx, rarebitLifecycleGeneration);
     clearInputOrigins();
     persistedUserInputAwaitingProvider = false;
     selectedUserMessageAwaitingProvider = false;
@@ -185,13 +193,26 @@ export function registerRarebitLifecycle(pi, schedule, options = {}) {
     // the selected Session evidence.
   });
 
-  pi.on("agent_start", () => {
+  pi.on("agent_start", (_event, ctx) => {
+    rarebitLifecycleGeneration += 1;
+    options.onAgentStart?.(ctx, rarebitLifecycleGeneration);
     // A retry, compaction pass, or queued continuation starts a new agent run;
     // an earlier stop is not the fully settled branch.
     normalStopAwaitingSettlement = false;
   });
 
-  pi.on("input", (event) => {
+  pi.on("turn_start", (_event, ctx) => {
+    rarebitLifecycleGeneration += 1;
+    options.onTurnStart?.(ctx, rarebitLifecycleGeneration);
+  });
+
+  pi.on("input", (event, ctx) => {
+    rarebitLifecycleGeneration += 1;
+    try {
+      options.onInputSent?.(ctx, rarebitLifecycleGeneration);
+    } catch {
+      // Human-facing cancellation is optional and must not alter input delivery.
+    }
     const bucket =
       event?.streamingBehavior === "steer"
         ? "steer"
@@ -235,8 +256,9 @@ export function registerRarebitLifecycle(pi, schedule, options = {}) {
   });
 
   pi.on("session_tree", (event, ctx) => {
+    rarebitLifecycleGeneration += 1;
     try {
-      options.onSessionTree?.(ctx, event);
+      options.onSessionTree?.(ctx, event, rarebitLifecycleGeneration);
     } catch {
       // Tree recency is an optional projection, not materialization truth.
     }
@@ -261,6 +283,7 @@ export function registerRarebitLifecycle(pi, schedule, options = {}) {
       ctx,
       () => sessionLive && sessionGeneration === generation,
       pendingLifecycleBoundary,
+      rarebitLifecycleGeneration,
     );
     pendingLifecycleBoundary = "owner_request";
     schedule(snapshot);
@@ -306,17 +329,19 @@ export function registerRarebitLifecycle(pi, schedule, options = {}) {
         ctx,
         () => sessionLive && sessionGeneration === generation,
         "agent_settled",
+        rarebitLifecycleGeneration,
       ),
     );
   });
 
-  pi.on("session_shutdown", () => {
+  pi.on("session_shutdown", (_event, ctx) => {
+    rarebitLifecycleGeneration += 1;
     clearInputOrigins();
     persistedUserInputAwaitingProvider = false;
     selectedUserMessageAwaitingProvider = false;
     firstOwnerInputAwaitingProvider = undefined;
     normalStopAwaitingSettlement = false;
     sessionLive = false;
-    options.onSessionShutdown?.();
+    options.onSessionShutdown?.(ctx, rarebitLifecycleGeneration);
   });
 }

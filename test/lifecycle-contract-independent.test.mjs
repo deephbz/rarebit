@@ -532,6 +532,7 @@ test("TUI notices state input cardinality, clearly estimated trigger tokens, and
       rarebitRoot: join(root, "rarebit"),
       summaryPolicy: { minTotalLength: 0, maxRarebitRatio: 1 },
       model: { provider: "test-provider", id: "cheap-model" },
+      diagnostics: { summaryTriggered: true, summaryUpdated: true },
       modelClient: {
         complete: async () => ({
           text: JSON.stringify({
@@ -588,6 +589,7 @@ test("updated notice never substitutes the local estimate for absent provider us
       rarebitRoot: join(root, "rarebit"),
       summaryPolicy: { minTotalLength: 0, maxRarebitRatio: 1 },
       model: { provider: "requested-provider", id: "requested-model" },
+      diagnostics: { summaryTriggered: true, summaryUpdated: true },
       modelClient: {
         complete: async () => ({
           text: JSON.stringify({

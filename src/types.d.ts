@@ -1,5 +1,38 @@
 export type RarebitModel = { provider: string; id: string };
 
+export type RarebitDiagnosticsSettings = {
+  summaryTriggered: boolean;
+  summaryUpdated: boolean;
+};
+export type RarebitRecapSettings = {
+  enabled: boolean;
+  delayMs: number;
+  timezone: string;
+};
+export type RarebitResolvedSettings = {
+  model?: RarebitModel;
+  modelConfigurationError?: string;
+  summaryPolicy: RarebitSummaryPolicy;
+  autoTitle: boolean;
+  maxInputTokens: number;
+  diagnostics: RarebitDiagnosticsSettings;
+  recap: RarebitRecapSettings;
+};
+export const DEFAULT_RAREBIT_RECAP_DELAY_MS: 60000;
+export const DEFAULT_RAREBIT_RECAP_TIMEZONE: "host";
+export const DEFAULT_RAREBIT_MAX_INPUT_TOKENS: 64000;
+export const MAX_RAREBIT_INPUT_TOKENS: number;
+export const DEFAULT_RAREBIT_DIAGNOSTICS: Readonly<RarebitDiagnosticsSettings>;
+export function mergeRarebitSettings(
+  globalSettings?: Record<string, unknown>,
+  projectSettings?: Record<string, unknown>,
+): Record<string, unknown>;
+export function normalizeRarebitRecapTimezone(value?: unknown): string;
+export function resolveRarebitSettings(
+  globalSettings?: Record<string, unknown>,
+  projectSettings?: Record<string, unknown>,
+): RarebitResolvedSettings;
+
 /** Seeded destination entries, including the generated fork notice. */
 export function getImportedRarebitEntryIds(entries: readonly unknown[]): Set<string>;
 export const RAREBIT_FORK_LINEAGE_SCHEMA_VERSION: 1;
@@ -395,11 +428,16 @@ export type RarebitNativeObservation =
 
 export const RAREBIT_SUMMARY_SCHEMA_VERSION: 4;
 export const RAREBIT_SUMMARY_IMPLEMENTATION_VERSION: "hc-rarebit-summary-v6";
+export const RAREBIT_INPUT_CHARS_PER_TOKEN: 4;
+export const DEFAULT_RAREBIT_MAX_PROMPT_CHARS: 256000;
 export function processRarebitSummary(
   ctx: unknown,
   config?: {
     model?: RarebitModel;
     summaryPolicy?: RarebitSummaryPolicy;
+    maxInputTokens?: number;
+    maxPromptChars?: number;
+    diagnostics?: RarebitDiagnosticsSettings;
     forceSynthesis?: boolean;
     // New derivation accepts only evidence-transition or explicit boundaries;
     // RarebitSummaryReceiptV4 retains session_start for historical reads.

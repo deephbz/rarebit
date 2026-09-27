@@ -25,6 +25,7 @@ import {
   extractRarebitSynthesisReceipt,
   resolveRarebitModelConfiguration,
 } from "./rarebit-model.mjs";
+import { DEFAULT_RAREBIT_MAX_INPUT_TOKENS } from "./rarebit-settings.mjs";
 import {
   RAREBIT_AUTOMATIC_SUMMARY_POLICY_CONTRACT,
   automaticSummaryInhibitionIdentity,
@@ -33,7 +34,25 @@ import {
 export const RAREBIT_TITLE_IMPLEMENTATION_VERSION = "hc-rarebit-title-v4";
 export const RAREBIT_SUMMARY_IMPLEMENTATION_VERSION = "hc-rarebit-summary-v6";
 export const RAREBIT_SUMMARY_SCHEMA_VERSION = 4;
-export const DEFAULT_RAREBIT_MAX_PROMPT_CHARS = 256_000;
+export const RAREBIT_INPUT_CHARS_PER_TOKEN = 4;
+export const DEFAULT_RAREBIT_MAX_PROMPT_CHARS =
+  DEFAULT_RAREBIT_MAX_INPUT_TOKENS * RAREBIT_INPUT_CHARS_PER_TOKEN;
+
+function maxPromptCharsFromConfig(config) {
+  if (config.maxPromptChars !== undefined) {
+    if (!Number.isSafeInteger(config.maxPromptChars) || config.maxPromptChars < 1)
+      throw new RangeError("maxPromptChars must be a positive safe integer");
+    return config.maxPromptChars;
+  }
+  const maxInputTokens =
+    config.maxInputTokens ?? DEFAULT_RAREBIT_MAX_INPUT_TOKENS;
+  if (!Number.isSafeInteger(maxInputTokens) || maxInputTokens < 1)
+    throw new RangeError("maxInputTokens must be a positive safe integer");
+  const maxPromptChars = maxInputTokens * RAREBIT_INPUT_CHARS_PER_TOKEN;
+  if (!Number.isSafeInteger(maxPromptChars))
+    throw new RangeError("maxInputTokens exceeds the supported prompt limit");
+  return maxPromptChars;
+}
 
 function sessionFileFrom(ctx) {
   const sessionFile = ctx?.sessionManager?.getSessionFile?.();
@@ -165,10 +184,7 @@ export async function processRarebitSummary(ctx, config = {}) {
         provenance: { source: "not_required", status: "not_required" },
       };
   const promptVersion = config.promptVersion ?? RAREBIT_SUMMARY_PROMPT_VERSION;
-  const maxPromptChars =
-    config.maxPromptChars ?? DEFAULT_RAREBIT_MAX_PROMPT_CHARS;
-  if (!Number.isInteger(maxPromptChars) || maxPromptChars < 1)
-    throw new RangeError("maxPromptChars must be a positive integer");
+  const maxPromptChars = maxPromptCharsFromConfig(config);
   const inputCoveragePolicy = {
     strategy: "newest_suffix_with_explicit_omission",
     maxPromptChars,

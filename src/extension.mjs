@@ -23,6 +23,7 @@ import {
   getRarebitArgumentCompletions,
   parseRarebitCommand,
   rarebitCommandDescription,
+  rarebitCommandUsage,
 } from "./rarebit-command.mjs";
 import {
   buildRarebitForkPlan,
@@ -39,6 +40,12 @@ import {
   createDetachedMaterializer,
   registerRarebitLifecycle,
 } from "./lifecycle.mjs";
+import { createRarebitRecapController } from "./rarebit-recap.mjs";
+import {
+  openRarebitPalette,
+  openRarebitSettings,
+  rarebitPaletteCommand,
+} from "./rarebit-settings-ui.mjs";
 import {
   automaticSummaryInhibitionIdentity,
   queryAutomaticSummaryPolicy,
@@ -104,6 +111,9 @@ export async function readConfiguredRarebitSettings({
     },
     summaryPolicy: resolved.summaryPolicy,
     autoTitle: resolved.autoTitle,
+    maxInputTokens: resolved.maxInputTokens,
+    diagnostics: resolved.diagnostics,
+    recap: resolved.recap,
     reserveTokens: resolveReserveTokens(global.value, project.value, model),
   };
 }
@@ -121,6 +131,10 @@ export default function registerPiRarebit(pi, config = {}) {
     });
   const activityReporter =
     explicit.activityReporter ?? createHerdrActivityReporter();
+  const recapController = createRarebitRecapController({
+    delayMs: explicit.recap?.delayMs,
+    timezone: explicit.recap?.timezone,
+  });
   const projectActivity = (ctx) => {
     const entries = ctx?.sessionManager?.getBranch?.() ?? [];
     return projectRarebitSessionActivity({
@@ -155,10 +169,11 @@ export default function registerPiRarebit(pi, config = {}) {
       ? `${name} tokens: ${value}`
       : `${name} tokens: unavailable`;
 
-  const notifyOutcome = (ctx, result, triggered) => {
-    if (!triggered || result?.duplicate || result?.inFlight) return;
+  const notifyOutcome = (ctx, result, triggered, diagnostics = {}) => {
+    if (result?.duplicate || result?.inFlight) return;
     switch (result?.record?.status) {
       case "ok":
+        if (!triggered || diagnostics.summaryUpdated !== true) return;
         notify(
           ctx,
           `Rarebit Summary updated (${tokenLabel("input", result.record.synthesis?.usage?.inputTokens)} · ${tokenLabel("output", result.record.synthesis?.usage?.outputTokens)} · model ${resultModelLabel(result)})`,
@@ -221,6 +236,15 @@ export default function registerPiRarebit(pi, config = {}) {
       ...injected,
       ...explicit,
       summaryPolicy,
+      maxInputTokens: explicit.maxInputTokens ?? injected.maxInputTokens,
+      diagnostics: {
+        ...(injected.diagnostics ?? {}),
+        ...(explicit.diagnostics ?? {}),
+      },
+      recap: {
+        ...(injected.recap ?? {}),
+        ...(explicit.recap ?? {}),
+      },
       piAi: explicit.piAi ?? {
         complete: async (...args) => (await import("@earendil-works/pi-ai/compat")).complete(...args),
       },
@@ -228,6 +252,7 @@ export default function registerPiRarebit(pi, config = {}) {
   };
 
   const materialize = async (ctx, { force = false } = {}) => {
+    const recapToken = recapController.captureMaterialization(ctx);
     let synthesisTriggered = false;
     const effective = await loadEffective(ctx);
     const result = await processRarebitSummary(ctx, {
@@ -239,14 +264,26 @@ export default function registerPiRarebit(pi, config = {}) {
       onSynthesisTriggered: (detail) => {
         synthesisTriggered = true;
         const count = detail.rarebitCount ?? detail.rarebitCount;
-        notify(
-          ctx,
-          `Rarebit Summary triggered (${count} Rarebits · input tokens: ~${detail.estimatedInputTokens} estimated (chars/4) · model ${modelLabel(detail.model)})`,
-          "info",
-        );
+        if (effective.diagnostics?.summaryTriggered === true)
+          notify(
+            ctx,
+            `Rarebit Summary triggered (${count} Rarebits · input tokens: ~${detail.estimatedInputTokens} estimated (chars/4) · model ${modelLabel(detail.model)})`,
+            "info",
+          );
       },
     });
-    notifyOutcome(ctx, result, synthesisTriggered);
+    notifyOutcome(ctx, result, synthesisTriggered, effective.diagnostics);
+    recapController.offer({
+      ctx,
+      result,
+      token: recapToken,
+      recapEnabled: effective.recap?.enabled !== false,
+      recapDelayMs: effective.recap?.delayMs,
+      recapTimezone: effective.recap?.timezone,
+      sessionRoot: effective.sessionRoot,
+      rarebitRoot: effective.rarebitRoot,
+      allowExternalSession: effective.allowExternalSession === true,
+    });
     return result;
   };
   const schedule = createDetachedMaterializer(materialize, (_error, ctx) => {
@@ -354,20 +391,33 @@ export default function registerPiRarebit(pi, config = {}) {
   );
 
   registerRarebitLifecycle(pi, schedule, {
-    onSessionStart: (ctx) => {
+    onSessionStart: (ctx, generation) => {
+      recapController.invalidate(ctx, generation);
       activeSession = identityFrom(ctx);
       activityReporter.start(projectActivity(ctx));
     },
-    onSessionTree: (ctx) => {
+    onAgentStart: (ctx, generation) => {
+      recapController.invalidate(ctx, generation);
+    },
+    onTurnStart: (ctx, generation) => {
+      recapController.invalidate(ctx, generation);
+    },
+    onInputSent: (ctx, generation) => {
+      recapController.invalidate(ctx, generation);
+    },
+    onSessionTree: (ctx, _event, generation) => {
+      recapController.invalidate(ctx, generation);
       activityReporter.update(projectActivity(ctx));
     },
     onSelectedUserPersisted: (ctx) => {
       activityReporter.update(projectActivity(ctx));
     },
     onAgentSettled: (ctx) => {
+      recapController.updateContext(ctx);
       activityReporter.update(projectActivity(ctx));
     },
-    onSessionShutdown: () => {
+    onSessionShutdown: (ctx, generation) => {
+      recapController.invalidate(ctx, generation);
       activeSession = undefined;
       activityReporter.stop();
     },
@@ -445,7 +495,35 @@ ${fence(requestText)}`;
     description: rarebitCommandDescription(),
     getArgumentCompletions: getRarebitArgumentCompletions,
     handler: async (args, ctx) => {
-      const command = parseRarebitCommand(args);
+      let commandInput = String(args ?? "");
+      const trimmedCommandInput = commandInput.trim();
+      if (!trimmedCommandInput || trimmedCommandInput === "menu") {
+        const currentUiState = () => ({
+          ...identityFrom(ctx),
+          branchLeafId: ctx?.sessionManager?.getBranch?.()?.at(-1)?.id ?? null,
+          cwd: ctx?.cwd ?? process.cwd(),
+          projectTrusted: ctx?.isProjectTrusted?.() === true,
+        });
+        const initial = currentUiState();
+        const selection = await openRarebitPalette(ctx, {
+          isCurrent: () => {
+            const current = currentUiState();
+            return current.sessionId === initial.sessionId &&
+              current.sessionFile === initial.sessionFile &&
+              current.branchLeafId === initial.branchLeafId &&
+              current.cwd === initial.cwd &&
+              current.projectTrusted === initial.projectTrusted;
+          },
+        });
+        commandInput = rarebitPaletteCommand(selection) ?? "";
+        if (!commandInput) return;
+        if (selection?.id === "recall") {
+          const prompt = await ctx.ui.input?.("Rarebit recall prompt", "");
+          if (prompt === undefined || !String(prompt).trim()) return;
+          commandInput = `recall ${prompt}`;
+        }
+      }
+      const command = parseRarebitCommand(commandInput);
       if (!command.ok) {
         notify(
           ctx,
@@ -457,6 +535,61 @@ ${fence(requestText)}`;
         return;
       }
       const { subcommand, arguments: rest } = command;
+      if (subcommand === "help") {
+        notify(
+          ctx,
+          [
+            rarebitCommandUsage(),
+            ...(commandInput.trim().split(/\s+/).length === 1
+              ? ["Use /rarebit to open the interactive command palette."]
+              : []),
+          ].join("\n"),
+          "info",
+        );
+        return;
+      }
+      if (subcommand === "settings") {
+        const currentUiState = () => ({
+          ...identityFrom(ctx),
+          branchLeafId: ctx?.sessionManager?.getBranch?.()?.at(-1)?.id ?? null,
+          cwd: ctx?.cwd ?? process.cwd(),
+          projectTrusted: ctx?.isProjectTrusted?.() === true,
+        });
+        const initial = currentUiState();
+        await openRarebitSettings(ctx, {
+          initialScope: rest[0] === "project" ? "project" : "global",
+          projectTrusted: initial.projectTrusted,
+          isCurrent: () => {
+            const current = currentUiState();
+            return current.sessionId === initial.sessionId &&
+              current.sessionFile === initial.sessionFile &&
+              current.branchLeafId === initial.branchLeafId &&
+              current.cwd === initial.cwd &&
+              current.projectTrusted === initial.projectTrusted;
+          },
+          onSaved: async ({ namespace, document }) => {
+            const previous = document?.namespace ?? {};
+            const changed = (path) => {
+              const read = (value) => path.reduce((current, key) => current?.[key], value);
+              return JSON.stringify(read(previous)) !== JSON.stringify(read(namespace));
+            };
+            if (changed(["max_rarebit_ratio"])) {
+              const next = { ...policyOverrides };
+              delete next.maxRarebitRatio;
+              policyOverrides = next;
+            }
+            if (changed(["min_total_length"])) {
+              const next = { ...policyOverrides };
+              delete next.minTotalLength;
+              policyOverrides = next;
+            }
+            if (changed(["auto_title"])) autoTitleOverride = undefined;
+            const effective = await loadEffective(ctx);
+            if (effective.recap?.enabled === false) recapController.invalidate(ctx);
+          },
+        });
+        return;
+      }
       if (subcommand === "fork") {
         if (typeof ctx?.switchSession !== "function") {
           notify(ctx, "Rarebit fork is unavailable in this Pi runtime", "error");
@@ -580,7 +713,7 @@ ${fence(requestText)}`;
           : "settings_or_default";
         notify(
           ctx,
-          `Rarebit ${subcommand}: auto-title=${autoTitleOverride ?? effective.autoTitle ?? true}; max_rarebit_ratio=${policy.maxRarebitRatio} (${ratioSource}); min_total_length=${policy.minTotalLength} estimated tokens via ceil(chars/4) (${lengthSource}); measurement=${policy.measurementVersion}; model=${modelLabel(effective.model)} from ${effective.modelProvenance?.settingsKey ?? "explicit config"}${policyStatus}`,
+          `Rarebit ${subcommand}: auto-title=${autoTitleOverride ?? effective.autoTitle ?? true}; recap=${effective.recap?.enabled !== false ? "on" : "off"} after ${effective.recap?.delayMs ?? 60000}ms (${effective.recap?.timezone ?? "host"}); diagnostics=triggered:${effective.diagnostics?.summaryTriggered === true ? "on" : "off"},updated:${effective.diagnostics?.summaryUpdated === true ? "on" : "off"}; max_input_tokens=${effective.maxInputTokens ?? 64000}; max_rarebit_ratio=${policy.maxRarebitRatio} (${ratioSource}); min_total_length=${policy.minTotalLength} estimated tokens via ceil(chars/4) (${lengthSource}); measurement=${policy.measurementVersion}; model=${modelLabel(effective.model)} from ${effective.modelProvenance?.settingsKey ?? "explicit config"}${policyStatus}`,
           "info",
         );
         return;
@@ -608,6 +741,29 @@ ${fence(requestText)}`;
           `Rarebit auto-title is ${(autoTitleOverride ?? effective.autoTitle ?? true) ? "on" : "off"}`,
           "info",
         );
+        return;
+      }
+      if (subcommand === "recap") {
+        if (effective.recap?.enabled === false) {
+          recapController.invalidate(ctx);
+          notify(ctx, "Rarebit Recap is disabled in settings", "info");
+          return;
+        }
+        const recap = await recapController.showExisting(ctx, {
+          expanded: rest[0] === "expand",
+          sessionRoot: effective.sessionRoot,
+          rarebitRoot: effective.rarebitRoot,
+          recapTimezone: effective.recap?.timezone,
+          allowExternalSession: effective.allowExternalSession === true,
+        });
+        if (!recap.shown)
+          notify(
+            ctx,
+            recap.reason === "no_current_summary"
+              ? "Rarebit has no current Summary for this Session branch"
+              : "Rarebit Recap is unavailable in this UI",
+            "warning",
+          );
         return;
       }
       if (subcommand === "title") {

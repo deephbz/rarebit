@@ -60,8 +60,19 @@ npm exec -- rarebit query --session /absolute/path/to/session.jsonl --json
 npm exec -- rarebit extract --session /absolute/path/to/session.jsonl --json
 ```
 
-The Pi extension adds `/rarebit` controls after installation. It has `status`,
-`config`, `auto-title`, `title`, `summarize`, `recall`, and `fork` subcommands.
+The Pi extension adds one `/rarebit` parent command. In the TUI, the bare
+command opens an action palette. `/rarebit settings` opens a tabbed editor
+with Actions, Summary, Recap, and Session sections. Choose global settings or
+a trusted Project override; each field shows its effective value and source.
+Edits require Save confirmation. Blank input or Remove override restores
+inheritance. Settings apply to future operations; disabling automatic Recap
+also clears its pending or visible widget.
+
+Direct `help`, `status`, `settings`, `config`, `auto-title`, `title`, `recap`,
+`summarize`, `recall`, and `fork` subcommands remain available. Use
+`/rarebit settings global` or `/rarebit settings project` to choose the editing
+scope directly. `recap` reads the current Summary receipt and renders it in
+the TUI; `recap expand` renders the full Summary. Neither form starts synthesis.
 
 `/rarebit fork` validates the newest contiguous Rarebit suffix, writes a new
 Session in Pi's Session store for the current working directory, and switches
@@ -88,8 +99,15 @@ the source.
 ## Model setup and optional derivations
 
 Summary and Title use a dedicated configured model. They never inherit Pi's
-interactive `defaultModel`. Put this in global Pi settings, or in a trusted
-project's `.pi/settings.json`:
+interactive `defaultModel`. Start with
+[the example config](docs/examples/rarebit.settings.json). Merge its `rarebit`
+object into global Pi settings (`~/.pi/agent/settings.json`, or
+`$PI_CODING_AGENT_DIR/settings.json` when set), or a trusted project's
+`.pi/settings.json`. Preserve other settings and select a model available
+through your authenticated provider. The example includes all Pi extension
+settings with their defaults; its model is an example choice.
+
+The configuration shape is:
 
 ```json
 {
@@ -97,10 +115,36 @@ project's `.pi/settings.json`:
     "model": "provider/model",
     "min_total_length": 80000,
     "max_rarebit_ratio": 0.4,
-    "auto_title": true
+    "auto_title": true,
+    "max_input_tokens": 64000,
+    "diagnostics": {
+      "summary_triggered": false,
+      "summary_updated": false
+    },
+    "recap": {
+      "enabled": true,
+      "delay_ms": 60000,
+      "timezone": "host"
+    }
   }
 }
 ```
+
+After a successful automatic or explicit Summary materialization, the Pi TUI
+offers the current Summary above the editor after one minute. The offer stays
+visible while you type and clears when Pi sends input, starts a new turn,
+changes Session or branch, or shuts down. Set `rarebit.recap.enabled` to
+`false` to disable the offer, or change `rarebit.recap.delay_ms` to adjust the
+delay. Set `rarebit.recap.timezone` to `host` or an IANA time zone such as
+`Asia/Hong_Kong` to format the Recap header. The header identifies the host
+zone or selected IANA zone and its offset at the observation time. The widget
+reads an existing receipt and never adds a Session message. In the Pi extension,
+`max_input_tokens` limits the Summary prompt by the existing
+`ceil(prompt characters / 4)` estimate. It
+defaults to 64,000 estimated input tokens and is not a provider output limit.
+Summary trigger and update notifications stay off unless
+`rarebit.diagnostics.summary_triggered` or
+`rarebit.diagnostics.summary_updated` is enabled.
 
 Then request explicit model work when you want it:
 
