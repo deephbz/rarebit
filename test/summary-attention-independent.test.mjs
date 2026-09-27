@@ -108,7 +108,7 @@ test("v4 synthesis validates legal status/reason combinations without rigid sect
       }),
     ),
     {
-      summary: "Any free-form prose with controls removed",
+      summary: "Any free-form prose\nwith controls removed",
       sessionStatus: "needs_attention",
       statusReason: "unfinished",
     },

@@ -150,7 +150,7 @@ test("default recap delay is one minute and a current receipt renders only in th
   assert.equal(reads, 1);
   assert.equal(widgets.length, 1);
   assert.equal(widgets[0][0], RAREBIT_RECAP_WIDGET_KEY);
-  assert.match(widgets[0][1].join("\n"), /RECAP_SENTINEL/);
+  assert.match(widgetText(widgets[0][1]), /RECAP_SENTINEL/);
   assert.deepEqual(widgets[0][2], { placement: "aboveEditor" });
 });
 
@@ -462,7 +462,7 @@ test("extension lifecycle materializes a real sidecar and arms the widget withou
     assert.equal(providerCalls, 1);
     const rendered = widgets.find((call) => call[1] !== undefined);
     assert.equal(rendered[0], RAREBIT_RECAP_WIDGET_KEY);
-    assert.match(rendered[1].join("\n"), /RECAP_SENTINEL/);
+    assert.match(widgetText(rendered[1]), /RECAP_SENTINEL/);
     assert.deepEqual(rendered[2], { placement: "aboveEditor" });
 
     const native = await readFile(sessionFile, "utf8");
@@ -507,3 +507,7 @@ test("settings preserve a global recap disable when a trusted project overrides 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+function widgetText(factory) {
+  return factory({ requestRender() {} }, { fg: (_name, text) => text }).render(160).join("\n");
+}

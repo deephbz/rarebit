@@ -187,9 +187,10 @@ test("recap renders the human label and converts the receipt timestamp to the co
   });
   const result = await controller.showExisting(context);
   assert.equal(result.shown, true);
-  assert.match(widgets[0][0], /^(?:◆! )?Recap · needs you · as of /);
-  assert.match(widgets[0][0], /Asia\/Hong_Kong/);
-  assert.doesNotMatch(widgets[0][0], /Rarebit Summary/);
+  const heading = widgets[0]({ requestRender() {} }, { fg: (_name, text) => text }).render(200).find((line) => line.includes("Recap ·")).trim();
+  assert.match(heading, /^(?:◆! )?Recap · needs you · as of /);
+  assert.match(heading, /Asia\/Hong_Kong/);
+  assert.doesNotMatch(heading, /Rarebit Summary/);
 });
 
 test("quiet Summary diagnostics still report materialization failures", async () => {
