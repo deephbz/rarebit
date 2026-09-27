@@ -117,6 +117,7 @@ The configuration shape is:
     "max_rarebit_ratio": 0.4,
     "auto_title": true,
     "max_input_tokens": 64000,
+    "summary_prompt": "The summary is free-form prose. State when evidence is uncertain, confusing, contradictory, or importantly missing instead of inventing a coherent account.",
     "diagnostics": {
       "summary_triggered": false,
       "summary_updated": false
@@ -145,6 +146,14 @@ defaults to 64,000 estimated input tokens and is not a provider output limit.
 Summary trigger and update notifications stay off unless
 `rarebit.diagnostics.summary_triggered` or
 `rarebit.diagnostics.summary_updated` is enabled.
+
+`rarebit.summary_prompt` is one scalar guidance string. It uses the default
+guidance shown in the example when omitted. The editor accepts multiline text,
+preserves its line breaks, and trims only outer whitespace. A blank value
+removes the override. The fixed evidence and JSON status contract remains
+owned by Rarebit. Keep custom guidance to a few short bullets so it leaves room
+for evidence in the configured Summary input budget. The editor rejects unsafe
+control characters and oversized values.
 
 Then request explicit model work when you want it:
 

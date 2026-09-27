@@ -9,6 +9,10 @@ import {
   DEFAULT_RAREBIT_RECAP_DELAY_MS,
   modelFromRarebitSettings,
 } from "./rarebit-settings.mjs";
+import {
+  DEFAULT_RAREBIT_SUMMARY_PROMPT_GUIDANCE,
+  normalizeRarebitSummaryPrompt,
+} from "./rarebit-core.mjs";
 
 // This module owns Rarebit's human-only command palette and settings editor.
 // It edits only the `rarebit` namespace in Pi settings. Model turns, Session
@@ -185,6 +189,7 @@ export const RAREBIT_SETTINGS_FIELDS = Object.freeze([
   field("summary_triggered_diagnostics", "Summary", "Show Summary triggered", ["diagnostics", "summary_triggered"], "boolean", "Show the Summary triggered diagnostic in the TUI. Warnings and errors always remain visible.", { defaultValue: false }),
   field("summary_updated_diagnostics", "Summary", "Show Summary updated", ["diagnostics", "summary_updated"], "boolean", "Show the Summary updated diagnostic in the TUI. Warnings and errors always remain visible.", { defaultValue: false }),
   field("max_input_tokens", "Summary", "Summary input cap", ["max_input_tokens"], "number", "Maximum Summary input in estimated tokens. The implementation bounds the prompt at about four UTF-16 characters per token.", { defaultValue: DEFAULT_RAREBIT_MAX_INPUT_TOKENS, min: 1, max: MAX_RAREBIT_INPUT_TOKENS }),
+  field("summary_prompt", "Summary", "Summary prompt", ["summary_prompt"], "multiline", "Optional multiline guidance for Summary prose. The fixed evidence and JSON status contract remains unchanged.", { defaultValue: DEFAULT_RAREBIT_SUMMARY_PROMPT_GUIDANCE }),
   field("min_total_length", "Summary", "Automatic Summary threshold", ["min_total_length"], "number", "Minimum Session prose length in estimated tokens before automatic Summary synthesis.", { defaultValue: 80_000, min: 0 }),
   field("max_rarebit_ratio", "Summary", "Maximum Rarebit ratio", ["max_rarebit_ratio"], "ratio", "Maximum selected Rarebit prose ratio for automatic Summary synthesis.", { defaultValue: 0.4, min: 0, max: 1 }),
   field("recap_enabled", "Recap", "Recap widget", ["recap", "enabled"], "boolean", "Show the human-only Recap widget after a current Summary is available.", { defaultValue: true }),
@@ -204,7 +209,6 @@ const paletteItems = [
   { id: "summary_status", tab: "Summary", label: "Summary status", description: "Show effective Summary policy." },
   { id: "summary_settings", tab: "Summary", label: "Summary settings", description: "Edit Summary diagnostics and input policy." },
   { id: "recap", tab: "Recap", label: "Recap", description: "Show the current Recap in the TUI." },
-  { id: "recap_expand", tab: "Recap", label: "Expand Recap", description: "Show the full current Recap." },
   { id: "recap_settings", tab: "Recap", label: "Recap settings", description: "Edit Recap display and timestamp settings." },
   { id: "title", tab: "Session", label: "Title Session", description: "Generate a title for the active Session." },
   { id: "session_settings", tab: "Session", label: "Session settings", description: "Edit model and automatic title settings." },
@@ -314,6 +318,11 @@ function settingDisplay(fieldDefinition, namespace, scope, inherited) {
       : Number(value).toLocaleString();
     return `${rendered}${source}`;
   }
+  if (fieldDefinition.kind === "multiline") {
+    const rendered = clean(value).replace(/\s+/g, " ").trim();
+    const preview = rendered.length > 96 ? `${rendered.slice(0, 93).trimEnd()}…` : rendered;
+    return `${preview}${source}`;
+  }
   if (fieldDefinition.kind === "timezone" && (value === "host" || value === HOST_TIMEZONE))
     return `${HOST_TIMEZONE}${source}`;
   if (fieldDefinition.kind === "string" && isRecord(value))
@@ -344,15 +353,23 @@ async function editField(ctx, fieldDefinition, namespace, inherited) {
     if (picked === "Remove override" || picked === "Default") return { value: undefined };
     return { value: picked === "on" };
   }
-  const displayed = raw === undefined
+  const displayedValue = fieldDefinition.kind === "multiline" && raw === undefined
+    ? getPath(inherited, fieldDefinition.path) ?? fieldDefinition.defaultValue
+    : raw;
+  const displayed = displayedValue === undefined
     ? ""
-    : fieldDefinition.kind === "string" && isRecord(raw)
-      ? `${clean(raw.provider)}/${clean(raw.id)}`
-      : String(raw);
+    : fieldDefinition.kind === "string" && isRecord(displayedValue)
+      ? `${clean(displayedValue.provider)}/${clean(displayedValue.id)}`
+      : String(displayedValue);
   const prompt = `${fieldDefinition.label} (blank removes override)`;
-  const entered = await ctx.ui.input(prompt, displayed);
+  const entered = fieldDefinition.kind === "multiline" && typeof ctx.ui.editor === "function"
+    ? await ctx.ui.editor(prompt, displayed)
+    : await ctx.ui.input(prompt, displayed);
   if (entered === undefined) return undefined;
   if (entered.trim() === "") return { value: undefined };
+  if (fieldDefinition.kind === "multiline") {
+    return { value: normalizeRarebitSummaryPrompt(entered).guidance };
+  }
   if (fieldDefinition.kind === "string" || fieldDefinition.kind === "timezone") {
     const value = entered.trim();
     if (fieldDefinition.kind === "timezone" && !validateTimezone(value)) throw new Error("Use a valid IANA timezone such as Asia/Hong_Kong, or leave it blank for the host timezone.");
@@ -452,7 +469,6 @@ export function rarebitPaletteCommand(selection) {
     case "settings": case "summary_settings": case "recap_settings": case "session_settings": return "settings";
     case "summary_status": return "status";
     case "recap": return "recap";
-    case "recap_expand": return "recap expand";
     case "summarize": return "summarize";
     case "recall": return "recall";
     case "title": return "title";

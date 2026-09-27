@@ -5,6 +5,7 @@
     "max_rarebit_ratio": 0.4,
     "auto_title": true,
     "max_input_tokens": 64000,
+    "summary_prompt": "The summary is free-form prose. State when evidence is uncertain, confusing, contradictory, or importantly missing instead of inventing a coherent account.",
     "diagnostics": {
       "summary_triggered": false,
       "summary_updated": false

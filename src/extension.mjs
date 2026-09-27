@@ -112,6 +112,7 @@ export async function readConfiguredRarebitSettings({
     summaryPolicy: resolved.summaryPolicy,
     autoTitle: resolved.autoTitle,
     maxInputTokens: resolved.maxInputTokens,
+    summaryPrompt: resolved.summaryPrompt,
     diagnostics: resolved.diagnostics,
     recap: resolved.recap,
     reserveTokens: resolveReserveTokens(global.value, project.value, model),
@@ -237,6 +238,7 @@ export default function registerPiRarebit(pi, config = {}) {
       ...explicit,
       summaryPolicy,
       maxInputTokens: explicit.maxInputTokens ?? injected.maxInputTokens,
+      summaryPrompt: explicit.summaryPrompt ?? injected.summaryPrompt,
       diagnostics: {
         ...(injected.diagnostics ?? {}),
         ...(explicit.diagnostics ?? {}),
