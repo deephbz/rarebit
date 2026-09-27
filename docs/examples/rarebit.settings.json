@@ -1,0 +1,18 @@
+{
+  "rarebit": {
+    "model": "openai-codex/gpt-5.6-luna",
+    "min_total_length": 80000,
+    "max_rarebit_ratio": 0.4,
+    "auto_title": true,
+    "max_input_tokens": 64000,
+    "diagnostics": {
+      "summary_triggered": false,
+      "summary_updated": false
+    },
+    "recap": {
+      "enabled": true,
+      "delay_ms": 60000,
+      "timezone": "host"
+    }
+  }
+}
