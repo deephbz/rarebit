@@ -1,6 +1,5 @@
 import {
   DEFAULT_RAREBIT_SUMMARY_POLICY,
-  normalizeRarebitSummaryPrompt,
 } from "./rarebit-core.mjs";
 
 export const DEFAULT_RAREBIT_RECAP_DELAY_MS = 60_000;
@@ -121,10 +120,10 @@ export function resolveRarebitSettings(
     isRecord(rarebit?.diagnostics)
       ? rarebit.diagnostics
       : {};
-  const summaryPrompt =
-    rarebit.summary_prompt === undefined
-      ? undefined
-      : normalizeRarebitSummaryPrompt(rarebit.summary_prompt).guidance;
+  // Keep this raw so an invalid Summary prompt cannot discard valid model,
+  // Recap, or title settings during settings loading. The Summary service
+  // validates it before model selection or job reservation.
+  const summaryPrompt = rarebit.summary_prompt;
   // Preserve an explicitly invalid cap so the service rejects the request
   // before it can invoke a model. Only an omitted setting receives the safe
   // default.

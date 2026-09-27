@@ -9,6 +9,9 @@ export const RAREBIT_MEASUREMENT_VERSION = "rarebit-prose-chars-div4-v1";
 export const RAREBIT_SUMMARY_PROMPT_VERSION = "rarebit-summary-v6";
 export const RAREBIT_SUMMARY_PROMPT_IDENTITY_VERSION =
   "rarebit-summary-prompt-v1";
+// User guidance is a UTF-16 string in JavaScript. Bound it before any Summary
+// provider work so a malformed settings value cannot create an unbounded job.
+export const MAX_RAREBIT_SUMMARY_PROMPT_CHARS = 64_000;
 // Receipts have a 48 KiB protocol limit. Keep the configurable Summary field
 // well below that limit even when the model returns multi-byte text.
 export const MAX_RAREBIT_SUMMARY_CHARS = 8_000;
@@ -298,6 +301,10 @@ export function normalizeRarebitSummaryPrompt(value) {
     throw new TypeError("summary_prompt must be a string");
   const guidance = value.replace(/\r\n?/g, "\n").trim();
   if (!guidance) throw new TypeError("summary_prompt must not be blank");
+  if (guidance.length > MAX_RAREBIT_SUMMARY_PROMPT_CHARS)
+    throw new RangeError(
+      `summary_prompt must not exceed ${MAX_RAREBIT_SUMMARY_PROMPT_CHARS} UTF-16 characters`,
+    );
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/.test(guidance))
     throw new TypeError("summary_prompt contains unsafe control characters");
   return {

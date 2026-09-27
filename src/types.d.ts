@@ -14,7 +14,7 @@ export type RarebitResolvedSettings = {
   modelConfigurationError?: string;
   summaryPolicy: RarebitSummaryPolicy;
   autoTitle: boolean;
-  summaryPrompt?: string;
+  summaryPrompt?: unknown;
   maxInputTokens: number;
   diagnostics: RarebitDiagnosticsSettings;
   recap: RarebitRecapSettings;
@@ -25,6 +25,7 @@ export const DEFAULT_RAREBIT_MAX_INPUT_TOKENS: 64000;
 export const MAX_RAREBIT_INPUT_TOKENS: number;
 export const DEFAULT_RAREBIT_DIAGNOSTICS: Readonly<RarebitDiagnosticsSettings>;
 export const RAREBIT_SUMMARY_PROMPT_IDENTITY_VERSION: "rarebit-summary-prompt-v1";
+export const MAX_RAREBIT_SUMMARY_PROMPT_CHARS: 64000;
 export const DEFAULT_RAREBIT_SUMMARY_PROMPT_GUIDANCE: string;
 export const MAX_RAREBIT_SUMMARY_CHARS: 8000;
 export function normalizeRarebitSummaryPrompt(value?: unknown): {
@@ -268,7 +269,7 @@ export function composeRarebitSummaryDerivationInput(
   selection: ReturnType<typeof selectRarebits>,
   options?: {
     promptVersion?: string;
-    summaryPrompt?: string;
+    summaryPrompt?: unknown;
     lifecycleBoundary?: "owner_request" | "agent_settled" | "manual";
     maxPromptChars?: number;
   }): {
@@ -281,7 +282,7 @@ export function composeRarebitSummaryPrompt(
   selection: ReturnType<typeof selectRarebits>,
   options?: {
     promptVersion?: string;
-    summaryPrompt?: string;
+    summaryPrompt?: unknown;
     lifecycleBoundary?: "owner_request" | "agent_settled" | "manual";
     maxPromptChars?: number;
   },
@@ -452,7 +453,7 @@ export function processRarebitSummary(
   config?: {
     model?: RarebitModel;
     summaryPolicy?: RarebitSummaryPolicy;
-    summaryPrompt?: string;
+    summaryPrompt?: unknown;
     maxInputTokens?: number;
     maxPromptChars?: number;
     diagnostics?: RarebitDiagnosticsSettings;

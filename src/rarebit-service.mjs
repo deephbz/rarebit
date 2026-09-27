@@ -1,6 +1,8 @@
 import {
   DEFAULT_RAREBIT_SUMMARY_POLICY,
+  DEFAULT_RAREBIT_SUMMARY_PROMPT_GUIDANCE,
   RAREBIT_SUMMARY_WRITABLE_LIFECYCLE_BOUNDARIES,
+  RAREBIT_SUMMARY_PROMPT_IDENTITY_VERSION,
   RAREBIT_SUMMARY_PROMPT_VERSION,
   RAREBIT_TITLE_PROMPT_VERSION,
   composeRarebitSummaryDerivationInput,
@@ -115,6 +117,25 @@ function machineModelProvenance(value) {
       ? { settingsKey: value.settingsKey }
       : {}),
   };
+}
+
+function summaryCacheSessionId(sessionId, promptVersion, summaryPrompt) {
+  const usesBuiltinContract =
+    promptVersion === RAREBIT_SUMMARY_PROMPT_VERSION &&
+    summaryPrompt.guidance === DEFAULT_RAREBIT_SUMMARY_PROMPT_GUIDANCE;
+  if (usesBuiltinContract) return sessionId;
+  const promptIdentity =
+    summaryPrompt.promptIdentity ??
+    sha256({
+      version: RAREBIT_SUMMARY_PROMPT_IDENTITY_VERSION,
+      guidance: summaryPrompt.guidance,
+    });
+  return sha256({
+    version: "rarebit-summary-cache-v1",
+    sessionId,
+    promptVersion,
+    promptIdentity,
+  });
 }
 
 /**
@@ -340,9 +361,11 @@ export async function processRarebitSummary(ctx, config = {}) {
     const response = await client.complete({
       prompt,
       model: modelResolution.model,
-      cacheSessionId: summaryPrompt.promptIdentity
-        ? sha256({ sessionId, promptIdentity: summaryPrompt.promptIdentity })
-        : sessionId,
+      cacheSessionId: summaryCacheSessionId(
+        sessionId,
+        promptVersion,
+        summaryPrompt,
+      ),
     });
     const synthesisResult = normalizeRarebitSummarySynthesis(
       extractModelText(response),
