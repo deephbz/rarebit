@@ -7,6 +7,7 @@ import {
   composeRarebitTitlePrompt,
   evaluateRarebitSummaryEligibility,
   measureRarebits,
+  normalizeRarebitSummaryPrompt,
   normalizeRarebitSummaryPolicy,
   normalizeRarebitSummarySynthesis,
   normalizeRarebitTitle,
@@ -122,6 +123,9 @@ function machineModelProvenance(value) {
  * owns only model invocation and append-only derived-record persistence.
  */
 export async function processRarebitSummary(ctx, config = {}) {
+  // Resolve before model selection or job reservation. Invalid prompt config
+  // must fail closed without a provider call or a misleading receipt.
+  const summaryPrompt = normalizeRarebitSummaryPrompt(config.summaryPrompt);
   const branch = ctx?.sessionManager?.getBranch?.() ?? config.branch ?? [];
   const sessionFile = config.sessionFile ?? sessionFileFrom(ctx);
   const sessionId = config.sessionId ?? sessionIdFrom(ctx);
@@ -184,6 +188,12 @@ export async function processRarebitSummary(ctx, config = {}) {
         provenance: { source: "not_required", status: "not_required" },
       };
   const promptVersion = config.promptVersion ?? RAREBIT_SUMMARY_PROMPT_VERSION;
+  // Keep the receipt self-describing without persisting the user guidance.
+  // The digest is already part of the job identity and is safe to expose as
+  // provenance beside the stable prompt contract version.
+  const receiptPromptVersion = summaryPrompt.promptIdentity
+    ? `${promptVersion}:${summaryPrompt.promptIdentity}`
+    : promptVersion;
   const maxPromptChars = maxPromptCharsFromConfig(config);
   const inputCoveragePolicy = {
     strategy: "newest_suffix_with_explicit_omission",
@@ -199,6 +209,7 @@ export async function processRarebitSummary(ctx, config = {}) {
     inputPolicy: inputCoveragePolicy,
     lifecycleBoundary,
     promptVersion,
+    promptIdentity: summaryPrompt.promptIdentity,
     model: modelResolution.model,
   });
   const jobId = inhibited
@@ -228,7 +239,7 @@ export async function processRarebitSummary(ctx, config = {}) {
     selection: machineSelection(selection),
     model: modelResolution.model,
     modelProvenance: machineModelProvenance(modelResolution.provenance),
-    promptVersion,
+    promptVersion: receiptPromptVersion,
     ...(inhibited ? { automaticSummaryPolicy } : {}),
   };
   if (!sessionFile) {
@@ -289,6 +300,7 @@ export async function processRarebitSummary(ctx, config = {}) {
     }
     const derivationInput = composeRarebitSummaryDerivationInput(selection, {
       promptVersion,
+      summaryPrompt: config.summaryPrompt,
       lifecycleBoundary,
       maxPromptChars,
     });
@@ -328,7 +340,9 @@ export async function processRarebitSummary(ctx, config = {}) {
     const response = await client.complete({
       prompt,
       model: modelResolution.model,
-      cacheSessionId: sessionId,
+      cacheSessionId: summaryPrompt.promptIdentity
+        ? sha256({ sessionId, promptIdentity: summaryPrompt.promptIdentity })
+        : sessionId,
     });
     const synthesisResult = normalizeRarebitSummarySynthesis(
       extractModelText(response),

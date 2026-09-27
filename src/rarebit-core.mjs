@@ -7,6 +7,13 @@ import { createHash } from "node:crypto";
 export const RAREBIT_SELECTOR_VERSION = "rarebit-selector-v1";
 export const RAREBIT_MEASUREMENT_VERSION = "rarebit-prose-chars-div4-v1";
 export const RAREBIT_SUMMARY_PROMPT_VERSION = "rarebit-summary-v6";
+export const RAREBIT_SUMMARY_PROMPT_IDENTITY_VERSION =
+  "rarebit-summary-prompt-v1";
+// Receipts have a 48 KiB protocol limit. Keep the configurable Summary field
+// well below that limit even when the model returns multi-byte text.
+export const MAX_RAREBIT_SUMMARY_CHARS = 8_000;
+export const DEFAULT_RAREBIT_SUMMARY_PROMPT_GUIDANCE =
+  "The summary is free-form prose. State when evidence is uncertain, confusing, contradictory, or importantly missing instead of inventing a coherent account.";
 export const RAREBIT_TITLE_PROMPT_VERSION = "rarebit-title-v1";
 export const RAREBIT_JOB_IDENTITY_VERSION = "rarebit-job-identity-v2";
 
@@ -274,12 +281,46 @@ function semanticMessages(selection) {
   }));
 }
 
+/**
+ * Resolve the bounded Summary style contract. The setting is a scalar prompt
+ * fragment. The fixed evidence and status contract remains in this module.
+ * The normalized identity is used by the service to prevent a changed prompt
+ * from reusing an older receipt.
+ */
+export function normalizeRarebitSummaryPrompt(value) {
+  if (value === undefined) {
+    return {
+      guidance: DEFAULT_RAREBIT_SUMMARY_PROMPT_GUIDANCE,
+      promptIdentity: null,
+    };
+  }
+  if (typeof value !== "string")
+    throw new TypeError("summary_prompt must be a string");
+  const guidance = value.replace(/\r\n?/g, "\n").trim();
+  if (!guidance) throw new TypeError("summary_prompt must not be blank");
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/.test(guidance))
+    throw new TypeError("summary_prompt contains unsafe control characters");
+  return {
+    guidance,
+    promptIdentity:
+      guidance === DEFAULT_RAREBIT_SUMMARY_PROMPT_GUIDANCE
+        ? null
+        : sha256({
+            version: RAREBIT_SUMMARY_PROMPT_IDENTITY_VERSION,
+            guidance,
+          }),
+  };
+}
+
 function summaryPromptParts(messages, {
   lifecycleBoundary,
   omittedMessageCount = 0,
   omittedTextChars = 0,
+  summaryPrompt,
 } = {}) {
   const ownerRequest = lifecycleBoundary === "owner_request";
+  const resolvedPrompt = normalizeRarebitSummaryPrompt(summaryPrompt);
+  const styleLine = resolvedPrompt.guidance;
   const omission =
     omittedMessageCount > 0 || omittedTextChars > 0
       ? {
@@ -294,7 +335,7 @@ function summaryPromptParts(messages, {
     "You are the HyperCarrier Rarebit summarizer.",
     "Summarize only what is explicitly stated in the ordered Rarebit evidence stream below.",
     "If an omission record appears, it is authoritative: earlier evidence is unavailable to you. Do not infer what was trimmed, and state when important missing evidence makes the account uncertain or confusing.",
-    "The summary is free-form prose. State when evidence is uncertain, confusing, contradictory, or importantly missing instead of inventing a coherent account.",
+    styleLine,
     "Identify every active, non-superseded request visible in the supplied evidence, not only the last turn. Explicit cancellation, replacement, supersession, and later resolution make an earlier request inactive.",
     "Selected evidence contains only user and assistant message prose at Rarebit continuation or stop boundaries. Tool-call inputs, tool results, hidden reasoning, and transport records are deliberately absent.",
     "Absence of a tool transcript is unobservable and must never by itself imply that work was not performed.",
@@ -328,27 +369,32 @@ export function composeRarebitSummaryDerivationInput(
     promptVersion = RAREBIT_SUMMARY_PROMPT_VERSION,
     lifecycleBoundary = "manual",
     maxPromptChars = Number.MAX_SAFE_INTEGER,
+    summaryPrompt,
   } = {},
 ) {
-  void promptVersion;
   if (
     !RAREBIT_SUMMARY_WRITABLE_LIFECYCLE_BOUNDARIES.includes(lifecycleBoundary)
   )
     throw new TypeError("Unsupported Summary lifecycle boundary");
   if (!Number.isInteger(maxPromptChars) || maxPromptChars < 1)
     throw new RangeError("maxPromptChars must be a positive integer");
+  const resolvedPrompt = normalizeRarebitSummaryPrompt(summaryPrompt);
 
   const allMessages = semanticMessages(selection);
   let messages = allMessages.slice();
   let omittedMessageCount = 0;
   let omittedTextChars = 0;
-  let prompt = renderSummaryPrompt(messages, { lifecycleBoundary });
+  let prompt = renderSummaryPrompt(messages, {
+    lifecycleBoundary,
+    summaryPrompt,
+  });
   while (prompt.length > maxPromptChars && messages.length > 1) {
     messages.shift();
     omittedMessageCount += 1;
     prompt = renderSummaryPrompt(messages, {
       lifecycleBoundary,
       omittedMessageCount,
+      summaryPrompt,
     });
   }
   if (prompt.length > maxPromptChars && messages.length === 1) {
@@ -363,6 +409,7 @@ export function composeRarebitSummaryDerivationInput(
         lifecycleBoundary,
         omittedMessageCount,
         omittedTextChars: removed,
+        summaryPrompt,
       });
       if (candidatePrompt.length <= maxPromptChars) {
         best = { messages: candidate, prompt: candidatePrompt, removed };
@@ -377,6 +424,8 @@ export function composeRarebitSummaryDerivationInput(
   }
   return {
     prompt,
+    promptIdentity: resolvedPrompt.promptIdentity,
+    promptVersion,
     coverage: {
       totalMessageCount: allMessages.length,
       includedMessageCount: messages.length,
@@ -425,17 +474,35 @@ function compactLine(value) {
     .trim();
 }
 
-export function normalizeRarebitSummary(value, { maxChars = 2_000 } = {}) {
+function preserveProseLayout(value) {
+  return String(value ?? "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, "")
+    .replace(/[\u2028\u2029]/g, "\n")
+    .trim();
+}
+
+export function normalizeRarebitSummary(
+  value,
+  { maxChars = MAX_RAREBIT_SUMMARY_CHARS } = {},
+) {
   if (!Number.isInteger(maxChars) || maxChars < 1)
     throw new RangeError("maxChars must be a positive integer");
-  const compact = compactLine(value);
-  if (!compact) throw new Error("Summary model returned no usable summary");
-  return compact.slice(0, maxChars).trimEnd();
+  if (maxChars > MAX_RAREBIT_SUMMARY_CHARS)
+    throw new RangeError(
+      `maxChars must not exceed ${MAX_RAREBIT_SUMMARY_CHARS}`,
+    );
+  const normalized = preserveProseLayout(value);
+  if (!normalized) throw new Error("Summary model returned no usable summary");
+  if (normalized.length <= maxChars) return normalized;
+  throw new RangeError(
+    `Summary model returned ${normalized.length} characters; configured limit is ${maxChars}`,
+  );
 }
 
 export function normalizeRarebitSummarySynthesis(
   value,
-  { maxChars = 2_000 } = {},
+  { maxChars = MAX_RAREBIT_SUMMARY_CHARS } = {},
 ) {
   let synthesis;
   try {
@@ -456,7 +523,9 @@ export function normalizeRarebitSummarySynthesis(
   if (!RAREBIT_SESSION_STATUS_REASONS[status].includes(reason))
     throw new TypeError("Summary model response has an illegal statusReason");
   return {
-    summary: normalizeRarebitSummary(synthesis.summary, { maxChars }),
+    summary: normalizeRarebitSummary(synthesis.summary, {
+      maxChars,
+    }),
     sessionStatus: status,
     statusReason: reason,
   };
@@ -501,6 +570,7 @@ export function rarebitJobIdentity({
   selection,
   policy = null,
   promptVersion,
+  promptIdentity = null,
   model = null,
 } = {}) {
   if (!new Set(["summary", "title"]).has(operation))
@@ -520,6 +590,7 @@ export function rarebitJobIdentity({
     selectionManifestHash: selection.manifestHash,
     policy: policy === null ? null : normalizeRarebitSummaryPolicy(policy),
     promptVersion: promptVersion ?? null,
+    promptIdentity: promptIdentity ?? null,
     model,
   });
 }

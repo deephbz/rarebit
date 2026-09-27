@@ -205,6 +205,7 @@ export async function readRarebitCliSettings({
       rawRefs: [globalPath, projectPath],
     },
     summaryPolicy: resolved.summaryPolicy,
+    summaryPrompt: resolved.summaryPrompt,
     autoTitle: resolved.autoTitle,
   };
 }
@@ -351,6 +352,7 @@ export async function runRarebitCli(options, dependencies = {}) {
         model: runtime.model,
         modelProvenance: runtime.modelProvenance,
         summaryPolicy: runtime.summaryPolicy,
+        summaryPrompt: runtime.summaryPrompt,
         forceSynthesis: options.force === true,
         allowExternalSession: true,
         rarebitRoot: dependencies.rarebitRoot,

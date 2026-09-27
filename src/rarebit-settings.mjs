@@ -1,4 +1,7 @@
-import { DEFAULT_RAREBIT_SUMMARY_POLICY } from "./rarebit-core.mjs";
+import {
+  DEFAULT_RAREBIT_SUMMARY_POLICY,
+  normalizeRarebitSummaryPrompt,
+} from "./rarebit-core.mjs";
 
 export const DEFAULT_RAREBIT_RECAP_DELAY_MS = 60_000;
 export const DEFAULT_RAREBIT_RECAP_TIMEZONE = "host";
@@ -118,6 +121,10 @@ export function resolveRarebitSettings(
     isRecord(rarebit?.diagnostics)
       ? rarebit.diagnostics
       : {};
+  const summaryPrompt =
+    rarebit.summary_prompt === undefined
+      ? undefined
+      : normalizeRarebitSummaryPrompt(rarebit.summary_prompt).guidance;
   // Preserve an explicitly invalid cap so the service rejects the request
   // before it can invoke a model. Only an omitted setting receives the safe
   // default.
@@ -138,6 +145,7 @@ export function resolveRarebitSettings(
         : { maxRarebitRatio: Number(rarebit.max_rarebit_ratio) }),
     },
     autoTitle: rarebit.auto_title !== false,
+    ...(summaryPrompt === undefined ? {} : { summaryPrompt }),
     maxInputTokens,
     diagnostics: {
       summaryTriggered: diagnostics.summary_triggered === true,
