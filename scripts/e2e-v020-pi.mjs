@@ -17,6 +17,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { execFile as execFileCallback } from "node:child_process";
+import { createRequire } from "node:module";
 import { promisify } from "node:util";
 
 const execFile = promisify(execFileCallback);
@@ -24,6 +25,11 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const piEntry = fileURLToPath(await import.meta.resolve("@earendil-works/pi-coding-agent"));
 const piRoot = resolve(dirname(dirname(piEntry)));
 const piCli = join(piRoot, "dist/cli.js");
+const resolveTuiRoot = (fromRoot) => {
+  const entry = createRequire(join(fromRoot, "package.json")).resolve("@earendil-works/pi-tui");
+  return resolve(dirname(entry), "..");
+};
+const sourceTuiRoot = process.env.RAREBIT_PI_TUI_ROOT ?? resolveTuiRoot(packageRoot);
 const tmux = process.env.TMUX_BIN ?? "tmux";
 const keepTemp = process.env.RAREBIT_KEEP_E2E_TEMP === "1";
 const packageTarball = process.env.RAREBIT_PACKAGE_TGZ;
@@ -95,8 +101,7 @@ try {
     await mkdir(installedRoot, { recursive: true });
     await execFile("tar", ["-xzf", resolve(packageTarball), "-C", installedRoot]);
     await mkdir(join(installedRoot, "node_modules", "@earendil-works"), { recursive: true });
-    const tuiRoot = process.env.RAREBIT_PI_TUI_ROOT ?? resolve(piRoot, "node_modules/@earendil-works/pi-tui");
-    await execFile("ln", ["-s", tuiRoot, join(installedRoot, "node_modules/@earendil-works/pi-tui")]);
+    await execFile("ln", ["-s", sourceTuiRoot, join(installedRoot, "node_modules/@earendil-works/pi-tui")]);
     await execFile("ln", ["-s", piRoot, join(installedRoot, "node_modules/@earendil-works/pi-coding-agent")]);
   }
 
