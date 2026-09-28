@@ -117,7 +117,7 @@ function runExtraction() {
       }
     });
   }
-  later(begin + sweep + 500, () => { stage.classList.remove("running"); stage.classList.add("done"); });
+  later(begin + sweep + 500, () => { layoutBits(); stage.classList.remove("running"); stage.classList.add("done"); });
 }
 if (stage) {
   const canAnimate = !prefersReducedMotion && "animate" in stage && "IntersectionObserver" in window;
@@ -129,7 +129,7 @@ if (stage) {
     const start = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting) && document.visibilityState === "visible") {
         start.disconnect();
-        runExtraction();
+        (document.fonts?.ready ?? Promise.resolve()).then(runExtraction);
       }
     }, { threshold: 0.4 });
     start.observe(stage);
