@@ -13,9 +13,11 @@ const siteOutputPath = join(root, "site", "index.html");
 const assetDirs = [join(root, "assets"), join(root, "site", "assets")];
 const siteFontDir = join(root, "site", "fonts");
 const fontFiles = {
-  "Lora-Variable.ttf": "serif",
-  "SourceSans3-Variable.ttf": "sans",
-  "SourceCodePro-Variable.ttf": "mono",
+  "EBGaramond-Variable.ttf": "serif",
+  "EBGaramond-Italic-Variable.ttf": "italic",
+  "Jost-Variable.ttf": "sans",
+  "CourierPrime-Regular.ttf": "mono",
+  "CourierPrime-Bold.ttf": "monoBold",
 };
 
 function escapeHtml(value) {
@@ -32,18 +34,30 @@ function renderSite(template, withVideo) {
   const values = {
     __HEADLINE__: copy.headline,
     __SHORT_DESCRIPTION__: copy.shortDescription,
-    __META_DESCRIPTION__: `${copy.shortDescription} ${copy.name} helps people recover the thread of long Pi sessions.`,
-    __JOURNEY_0_TEXT__: copy.journeys[0].text,
-    __JOURNEY_0_COMMAND__: copy.journeys[0].command,
-    __JOURNEY_1_TEXT__: copy.journeys[1].text,
-    __JOURNEY_1_COMMAND__: copy.journeys[1].command,
-    __JOURNEY_2_TEXT__: copy.journeys[2].text,
-    __JOURNEY_2_COMMAND__: copy.journeys[2].command,
+    __TAGLINE__: copy.tagline,
+    __EYEBROW__: copy.eyebrow,
+    __INSTALL__: copy.install,
+    __EXTRACT__: copy.extract,
+    __META_DESCRIPTION__: `${copy.shortDescription} ${copy.name} helps people catch up on long Pi sessions.`,
   };
+  copy.journeys.forEach((journey, index) => {
+    values[`__JOURNEY_${index}_NAME__`] = journey.name;
+    values[`__JOURNEY_${index}_LABEL__`] = journey.label;
+    values[`__JOURNEY_${index}_TEXT__`] = journey.text;
+    values[`__JOURNEY_${index}_COMMAND__`] = journey.command;
+  });
+  // Claims render as numbered notes; each links to the source that anchors it.
+  const sourceUrl = (anchor) => {
+    const [path, fragment] = anchor.split(/[#:]/);
+    if (path === "README.md") return `https://github.com/deephbz/rarebit#${fragment}`;
+    return `https://github.com/deephbz/rarebit/blob/main/${path}`;
+  };
+  const notes = `<ol>${copy.claims.map((claim, index) =>
+    `<li id="note-${index + 1}">${escapeHtml(claim.text)} <a href="${escapeHtml(sourceUrl(claim.anchor))}"><code>${escapeHtml(claim.anchor)}</code></a></li>`).join("")}</ol>`;
   const rendered = Object.entries(values).reduce(
     (html, [token, value]) => html.replaceAll(token, escapeHtml(value)),
     template,
-  );
+  ).replace("__CLAIM_NOTES__", notes);
   if (withVideo) return rendered;
   return rendered.replace(/\s*<section class="video-section section"[\s\S]*?<\/section>/, "");
 }
@@ -52,9 +66,9 @@ function parseFont(buffer) {
   return opentype.parse(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
 }
 
-function fontFor(fontData, family) {
-  if (family.includes("Lora")) return fontData.serif;
-  if (family.includes("Source Code")) return fontData.mono;
+function fontFor(fontData, family, { italic = false, weight = 400 } = {}) {
+  if (family.includes("Garamond")) return italic ? fontData.italic : fontData.serif;
+  if (family.includes("Courier")) return weight >= 700 ? fontData.monoBold : fontData.mono;
   return fontData.sans;
 }
 
@@ -85,34 +99,51 @@ class SvgContext {
   stroke() { this.nodes.push(`<path d="${this.path.join(" ")}" fill="none" stroke="${this.strokeStyle}" stroke-width="${this.lineWidth}" stroke-linecap="${this.state.lineCap}"/>`); }
   fill() { this.nodes.push(`<path d="${this.path.join(" ")}" fill="${this.fillStyle}"/>`); }
   roundRect(x, y, width, height, radius) { this.nodes.push(`<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${radius}" fill="${this.fillStyle}"/>`); }
-  text(value, x, y, { size = 16, family = RarebitBrand.tokens.fonts.body, fill = RarebitBrand.tokens.colors.ink, anchor = "start" } = {}) {
-    const font = fontFor(this.fontData, family);
-    const text = String(value);
-    const width = font.getAdvanceWidth(text, size, { kerning: true });
-    const start = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x;
-    const path = font.getPath(text, start, y, size, { kerning: true });
-    this.nodes.push(`<path d="${path.toPathData(2)}" fill="${fill}"/>`);
+  text(value, x, y, { size = 16, family = RarebitBrand.tokens.fonts.body, fill = RarebitBrand.tokens.colors.ink, anchor = "start", italic = false, weight = 400, ls = 0 } = {}) {
+    const font = fontFor(this.fontData, family, { italic, weight });
+    const chars = [...String(value)];
+    const advance = (ch) => font.getAdvanceWidth(ch, size, { kerning: true }) + ls;
+    const width = chars.reduce((sum, ch) => sum + advance(ch), 0) - ls;
+    let cursor = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x;
+    if (!ls) {
+      this.nodes.push(`<path d="${font.getPath(chars.join(""), cursor, y, size, { kerning: true }).toPathData(2)}" fill="${fill}"/>`);
+      return;
+    }
+    const parts = [];
+    for (const ch of chars) {
+      parts.push(font.getPath(ch, cursor, y, size).toPathData(2));
+      cursor += advance(ch);
+    }
+    this.nodes.push(`<path d="${parts.join(" ")}" fill="${fill}"/>`);
   }
   finish(extra = "") {
     return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.width} ${this.height}" role="img">${extra}${this.nodes.join("")}</svg>\n`;
   }
 }
 
+// Paperback Chic collateral. The wordmark is tracked Jost capitals; prose is
+// EB Garamond; the cover band is the one cheddar accent.
+const { colors: K, fonts: T } = RarebitBrand.tokens;
+
+function wordmark(c, x, y, size, anchor = "start") {
+  c.text("RAREBIT", x, y, { size, family: T.label, ls: size * 0.22, anchor });
+}
+
 function headerLogoSvg(fontData) {
-  const c = new SvgContext(180, 72, fontData);
-  RarebitBrand.drawLogo(c, 25, 36, 34);
-  c.text("rarebit", 53, 47, { size: 32, family: RarebitBrand.tokens.fonts.display, fill: RarebitBrand.tokens.colors.ink });
-  return c.finish('<title>Rarebit</title>');
+  const c = new SvgContext(236, 72, fontData);
+  RarebitBrand.drawLogo(c, 30, 36, 40);
+  wordmark(c, 66, 46, 28);
+  return c.finish("<title>Rarebit</title>");
 }
 
 function logoSvg(fontData) {
   const c = new SvgContext(720, 220, fontData);
-  c.fillStyle = RarebitBrand.tokens.colors.paperBright;
-  c.roundRect(0, 0, 720, 220, 24);
-  RarebitBrand.drawLogo(c, 116, 110, 92);
-  c.text("rarebit", 192, 133, { size: 76, family: RarebitBrand.tokens.fonts.display, weight: 600 });
-  c.text("recover the thread", 198, 169, { size: 17, family: RarebitBrand.tokens.fonts.mono, fill: RarebitBrand.tokens.colors.muted });
-  return c.finish('<title>Rarebit — recover the thread</title>');
+  c.fillStyle = K.paperBright;
+  c.roundRect(0, 0, 720, 220, 4);
+  RarebitBrand.drawLogo(c, 120, 110, 110);
+  wordmark(c, 206, 126, 62);
+  c.text(RarebitBrand.copy.tagline, 208, 172, { size: 26, family: T.body, italic: true, fill: K.muted });
+  return c.finish("<title>Rarebit — keep the rare bits</title>");
 }
 
 function markSvg(fontData, kind) {
@@ -121,83 +152,70 @@ function markSvg(fontData, kind) {
   return c.finish(`<title>${kind.replaceAll("_", " ")}</title>`);
 }
 
+// A paperback cover: wordmark above, a cheddar band with the title, marks below.
+function coverSvg(fontData, width, height, { title, subtitle, footer }) {
+  const c = new SvgContext(width, height, fontData);
+  const band = { y: height * 0.36, h: height * 0.36 };
+  c.fillStyle = K.paper;
+  c.roundRect(0, 0, width, height, 0);
+  RarebitBrand.drawLogo(c, width / 2, height * 0.12, height * 0.11);
+  wordmark(c, width / 2 + height * 0.012, height * 0.28, height * 0.1, "middle");
+  c.fillStyle = K.cover;
+  c.roundRect(0, band.y, width, band.h, 0);
+  c.text(title, width / 2, band.y + band.h * 0.48, { size: height * 0.085, family: T.display, italic: true, anchor: "middle" });
+  c.text(subtitle, width / 2, band.y + band.h * 0.8, { size: height * 0.048, family: T.display, italic: true, anchor: "middle" });
+  const marks = [["user_message", "Keep the public API unchanged."], ["agent_continuation", "I’ll check the cache key."], ["agent_stop", "Cache fix ready for review."]];
+  const y = band.y + band.h + height * 0.13;
+  marks.forEach(([kind, label], i) => {
+    const x = width * (0.22 + i * 0.28);
+    RarebitBrand.drawMark(c, kind, x, y - height * 0.025, height * (kind === "agent_continuation" ? 0.05 : 0.04));
+    c.text(label, x, y + height * 0.045, { size: height * 0.03, family: T.body, anchor: "middle" });
+  });
+  if (footer) c.text(footer, width / 2, height * 0.95, { size: height * 0.03, family: T.label, ls: height * 0.006, fill: K.muted, anchor: "middle" });
+  return c;
+}
+
 function posterSvg(fontData) {
-  const c = new SvgContext(1600, 900, fontData);
-  const { colors, fonts } = RarebitBrand.tokens;
-  c.fillStyle = colors.paper;
-  c.roundRect(0, 0, 1600, 900, 0);
-  c.fillStyle = colors.dark;
-  c.roundRect(88, 82, 1424, 736, 28);
-  c.text("RAREBIT", 148, 164, { size: 19, family: fonts.mono, weight: 600, fill: "#9bb7a2" });
-  c.text("Catch up. Keep the thread.", 148, 270, { size: 74, family: fonts.display, weight: 600, fill: colors.darkText });
-  c.text("A visual story about selected conversation on the active branch.", 148, 326, { size: 23, fill: "#b9cfc0" });
-  c.fillStyle = colors.paperBright;
-  c.roundRect(130, 434, 1340, 210, 16);
-  c.strokeStyle = colors.rule;
-  c.lineWidth = 2;
-  c.beginPath();
-  c.moveTo(168, 530);
-  c.lineTo(1350, 530);
-  c.stroke();
-  const marks = [[310, "user_message", "Keep the public API unchanged."], [700, "agent_continuation", "I’ll check the cache key."], [1070, "agent_stop", "Cache fix ready for review."]];
-  for (const [x, kind, label] of marks) {
-    RarebitBrand.drawMark(c, kind, x, 530, kind === "agent_continuation" ? 25 : 42);
-    c.text(label, x, 600, { size: 18, fill: colors.ink, anchor: "middle" });
-  }
-  c.text("tool traffic recedes · source evidence remains", 148, 746, { size: 18, family: fonts.mono, fill: "#9bb7a2" });
-  return c.finish('<title>Rarebit — promo video poster</title>');
+  return coverSvg(fontData, 1600, 900, { title: "Catch up on long Pi sessions.", subtitle: RarebitBrand.copy.tagline, footer: "ILLUSTRATED FICTIONAL SESSION" })
+    .finish("<title>Rarebit — promo video poster</title>");
 }
 
 function faviconSvg(fontData) {
   const c = new SvgContext(128, 128, fontData);
-  c.fillStyle = RarebitBrand.tokens.colors.paperBright;
-  c.roundRect(0, 0, 128, 128, 24);
-  RarebitBrand.drawLogo(c, 64, 64, 72);
-  return c.finish('<title>Rarebit</title>');
+  c.fillStyle = K.paperBright;
+  c.roundRect(0, 0, 128, 128, 10);
+  RarebitBrand.drawLogo(c, 64, 64, 80);
+  return c.finish("<title>Rarebit</title>");
 }
 
 function bannerSvg(fontData) {
   const c = new SvgContext(1600, 500, fontData);
-  const { colors, fonts } = RarebitBrand.tokens;
-  c.fillStyle = colors.paper;
+  c.fillStyle = K.paper;
   c.roundRect(0, 0, 1600, 500, 0);
-  c.fillStyle = colors.dark;
-  c.roundRect(88, 42, 1424, 416, 28);
-  c.text("RAREBIT", 148, 112, { size: 19, family: fonts.mono, weight: 600, fill: "#9bb7a2" });
-  c.text("Catch up. Keep the thread.", 148, 190, { size: 62, family: fonts.display, weight: 600, fill: colors.darkText });
-  c.text("Selected conversation from the active branch of a long Pi session.", 148, 232, { size: 20, fill: "#b9cfc0" });
-  c.fillStyle = colors.paperBright;
-  c.roundRect(130, 270, 1340, 150, 16);
-  c.strokeStyle = colors.rule;
-  c.lineWidth = 2;
-  c.beginPath();
-  c.moveTo(168, 320);
-  c.lineTo(1350, 320);
-  c.stroke();
-  const marks = [
-    [310, "user_message", "Keep the public API unchanged."],
-    [700, "agent_continuation", "I’ll check the cache key."],
-    [1070, "agent_stop", "Cache fix ready for review."],
-  ];
-  for (const [x, kind, label] of marks) {
-    RarebitBrand.drawMark(c, kind, x, 320, kind === "agent_continuation" ? 25 : 42);
-    c.text(label, x, 380, { size: 18, fill: colors.ink, anchor: "middle" });
-  }
-  c.text("tool traffic recedes · source evidence remains", 148, 426, { size: 18, family: fonts.mono, fill: "#9bb7a2" });
-  return c.finish('<title>Rarebit — catch up on long Pi sessions</title>');
+  RarebitBrand.drawLogo(c, 120, 78, 56);
+  wordmark(c, 166, 92, 34);
+  c.fillStyle = K.cover;
+  c.roundRect(0, 140, 1600, 220, 0);
+  c.text("Keep the rare bits.", 96, 236, { size: 84, family: T.display, italic: true });
+  c.text("Catch up on long Pi sessions without rereading the tool traffic.", 98, 312, { size: 30, family: T.body, italic: true });
+  c.fillStyle = K.paperBright;
+  c.roundRect(1040, 110, 470, 280, 2);
+  const rows = [["user_message", "Keep the public API unchanged."], ["agent_continuation", "I’ll check the cache key."], ["agent_stop", "Cache fix ready for review."]];
+  c.text("RARE BITS", 1076, 162, { size: 18, family: T.label, ls: 4, fill: K.muted });
+  rows.forEach(([kind, label], i) => {
+    const y = 222 + i * 60;
+    RarebitBrand.drawMark(c, kind, 1090, y, kind === "agent_continuation" ? 26 : 22);
+    c.text(label, 1118, y + 9, { size: 28, family: T.body });
+  });
+  c.text("Your messages and the agent’s prose. Tool traffic stays out; the source stays untouched.", 96, 440, { size: 24, family: T.body, fill: K.muted });
+  return c.finish("<title>Rarebit — keep the rare bits of a long Pi session</title>");
 }
 
 async function main() {
-  const fontBuffers = {
-    serif: await readFile(join(root, "fonts", "Lora-Variable.ttf")),
-    sans: await readFile(join(root, "fonts", "SourceSans3-Variable.ttf")),
-    mono: await readFile(join(root, "fonts", "SourceCodePro-Variable.ttf")),
-  };
-  const fonts = {
-    serif: parseFont(fontBuffers.serif),
-    sans: parseFont(fontBuffers.sans),
-    mono: parseFont(fontBuffers.mono),
-  };
+  const fontBuffers = Object.fromEntries(await Promise.all(
+    Object.entries(fontFiles).map(async ([file, key]) => [key, await readFile(join(root, "fonts", file))]),
+  ));
+  const fonts = Object.fromEntries(Object.entries(fontBuffers).map(([key, buffer]) => [key, parseFont(buffer)]));
   const outputs = {
     "logo.svg": logoSvg(fonts),
     "header-logo.svg": headerLogoSvg(fonts),

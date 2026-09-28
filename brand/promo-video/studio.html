@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rarebit promo studio</title>
+  <style>
+    @font-face { font-family: 'EB Garamond'; src: url('../fonts/EBGaramond-Variable.ttf') format('truetype'); font-weight: 400 800; font-style: normal; font-display: block; }
+    @font-face { font-family: 'EB Garamond'; src: url('../fonts/EBGaramond-Italic-Variable.ttf') format('truetype'); font-weight: 400 800; font-style: italic; font-display: block; }
+    @font-face { font-family: 'Jost'; src: url('../fonts/Jost-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: block; }
+    @font-face { font-family: 'Courier Prime'; src: url('../fonts/CourierPrime-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: block; }
+    @font-face { font-family: 'Courier Prime'; src: url('../fonts/CourierPrime-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: block; }
+    html, body { margin: 0; min-height: 100%; background: #111; color: #eee; }
+    body { display: grid; place-items: center; }
+    main { width: min(100vw, 1920px); }
+    #out { width: 100%; aspect-ratio: 16 / 9; display: block; }
+    #scrub { width: 100%; display: block; }
+  </style>
+</head>
+<body>
+  <main>
+    <canvas id="out" width="1920" height="1080" aria-label="Rarebit promo preview"></canvas>
+    <input id="scrub" type="range" min="0" max="62.4" step="0.033333" value="0" aria-label="Preview time">
+  </main>
+  <script src="timeline.js"></script>
+  <script type="module" src="scene.js"></script>
+  <script>
+    document.getElementById('scrub').addEventListener('input', event => {
+      if (window.renderFrame) window.renderFrame(Number(event.target.value));
+    });
+  </script>
+</body>
+</html>

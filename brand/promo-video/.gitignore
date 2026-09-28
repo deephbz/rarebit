@@ -1,0 +1,8 @@
+node_modules/
+out/
+assets/
+*.mp4
+*.wav
+*.jpg
+*.png
+!preview.jpg

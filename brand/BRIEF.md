@@ -6,16 +6,20 @@ Status: implementation brief. Product direction is accepted; visual execution us
 
 ## Product story
 
-**Catch up on long Pi sessions without rereading the tool traffic.**
+**Keep the rare bits of a long Pi session.**
 
-Rarebit distills the active session branch into selected conversational prose. Humans can catch up on that conversation; agents can read the same selection to recover earlier instructions and handoffs. Original session evidence remains available.
+The name is the story: Rarebit keeps the *rare bits*. It distills the active session branch into the user messages and the agent's prose replies. Those few lines carry the user's intent, the progress, and where the agent stopped. Tool traffic stays out; the original session remains the evidence. The metaphor is distillation: diamonds kept, sand sifted away and kept as the source.
 
 Use this hierarchy:
 
-1. Catch up / distill: the core story.
-2. Recall: catch-up for the agent. The Pi slash command prepares the selection for a request. The CLI exposes selected prose for agent workflows.
-3. Fork: a distilled alternative to native Pi fork. It starts a new session from a bounded newest suffix of selected prose.
-4. Summary and auto-title: optional model-derived projections. Recap presents an existing Summary in the Pi TUI.
+1. Catch up / distill: the core story. Lead with the rare bits, not with a command.
+2. Uses of the rare bits, shown as equal chapters:
+   - Recall: remind the agent. The Pi slash command prepares the selection for one request.
+   - Summary: catch up yourself. An optional model-derived projection; Recap presents an existing Summary in the Pi TUI.
+   - Fork: start fresh. A new session from a bounded newest suffix of selected prose, tool calls left behind.
+3. CLI `extract`: a secondary path for scripts and agent workflows.
+
+Keep commands quiet. Show at most one short slash command per use; keep long CLI lines out of the first screen and out of the video's core story.
 
 Do not describe deterministic selection as model summarization. Do not invent a CLI `recall` command; show the actual `extract` interface. Summary generation needs a configured model. Displaying Recap does not generate a Summary. Fork does not promise complete context transfer.
 
@@ -44,7 +48,7 @@ Use the existing executable event grammar in `src/rarebit-visual-language.mjs` a
 
 Summary status is a separate as-of annotation. Do not turn it into an event or use green as a success signal.
 
-Brand direction: quiet editorial clarity, warm light ground, ink typography, a restrained green accent, generous space, and dense traffic contrasted with sparse conversation. Avoid copying another product's palette, actor colors, or heavy outlines. Color never carries meaning alone.
+Brand direction: **Paperback Chic** with an information-hygiene feel. An aged-paper page, warm ink, EB Garamond prose, tracked Jost capitals for the wordmark and running heads, Courier Prime for session text, and one cheddar cover band as the only decorative accent. Hygiene: generous margins, one focal line at a time, noise filed as footnotes or kept as a source pile instead of deleted, and every claim footnoted to its source. Avoid copying another product's palette, actor colors, or heavy outlines. Color never carries meaning alone; cheddar never marks an event.
 
 `brand/brand.mjs` owns brand tokens, public short copy, claim anchors, and shared drawing primitives. It imports the executable semantic mapping instead of redefining it. Generated SVG assets, the website, and Canvas video frames derive from this source. Layout belongs to each surface.
 
@@ -64,13 +68,14 @@ The `ctx` drawing interface should work for Canvas2D and the SVG asset renderer.
 
 - README: understand the value, install, and achieve the first useful result. Preserve configuration, privacy, compatibility, and recovery guidance with clear navigation.
 - GitHub Pages: a compact product introduction with a visible demonstration, the three journeys, installation, source links, and accessible mobile layout.
-- Promo video: show the catch-up transformation, then Recall and a bounded Fork as extensions of that story. Summary and title remain supporting derivations.
+- Promo video: show the distillation (traffic sifts away, rare bits remain), then Recall, Summary, and Fork as chapters of one book.
 
 The site needs no analytics, external tracking, accounts, backend, or live private session data. Use vendored licensed fonts or safe system fonts. Respect reduced motion and keyboard access.
 
 ## Video defaults
 
 - 1920 × 1080, 30 fps, approximately 60–75 seconds.
+- Body text at least 40 px and labels at least 32 px at 1080p; `render.mjs --audit` checks every visible read.
 - Works without sound; optional deterministic, sample-free music.
 - One timeline owns scene timing, captions, reading holds, and audio cues.
 - Every frame is a pure function of time. Load fonts before rendering.

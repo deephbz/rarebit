@@ -1,14 +1,15 @@
 # Vendored brand fonts
 
-Rarebit uses these OFL-licensed Google Fonts files so SVG assets and the promo
-renderer can use known font data:
+Rarebit uses these OFL-licensed Google Fonts files so SVG assets, the site,
+and the promo renderer use known font data:
 
-- `Lora-Variable.ttf` — display face
-  - source: https://github.com/google/fonts/tree/main/ofl/lora
-- `SourceSans3-Variable.ttf` — body face
-  - source: https://github.com/google/fonts/tree/main/ofl/sourcesans3
-- `SourceCodePro-Variable.ttf` — command and metadata face
-  - source: https://github.com/google/fonts/tree/main/ofl/sourcecodepro
+- `EBGaramond-Variable.ttf`, `EBGaramond-Italic-Variable.ttf`: prose and display face
+  - source: https://github.com/google/fonts/tree/main/ofl/ebgaramond
+- `Jost-Variable.ttf`: wordmark, running heads, and labels
+  - source: https://github.com/google/fonts/tree/main/ofl/jost
+- `CourierPrime-Regular.ttf`, `CourierPrime-Bold.ttf`: commands and session text
+  - source: https://github.com/google/fonts/tree/main/ofl/courierprime
 
-`Lora-OFL.txt`, `SourceSans3-OFL.txt`, and `SourceCodePro-OFL.txt` are the licenses for the vendored files. Do not replace them with a platform
-font in generated collateral. System stacks remain fallbacks for live HTML.
+`EBGaramond-OFL.txt`, `Jost-OFL.txt`, and `CourierPrime-OFL.txt` are the
+licenses for the vendored files. Do not replace them with a platform font in
+generated collateral. System stacks remain fallbacks for live HTML.

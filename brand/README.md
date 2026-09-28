@@ -31,7 +31,7 @@ video and transcript, with no broken remote source. The README banner is always
 ```js
 import { RarebitBrand } from "./brand/brand.mjs";
 
-RarebitBrand.tokens;             // palette, font roles, spacing
+RarebitBrand.tokens;             // Paperback Chic palette, font roles (display, body, label, mono), spacing
 RarebitBrand.copy;               // short copy and source-backed claims
 RarebitBrand.drawMark(ctx, kind, x, y, size);
 RarebitBrand.drawLogo(ctx, x, y, size);
@@ -63,3 +63,25 @@ delivery, or measured user benefit.
 The site video is optional. It uses a release URL, `preload="none"`, controls,
 and an equivalent transcript so the product story does not depend on motion or
 sound.
+
+## Promo video
+
+`promo-video/` is the reproducible source bundle for the one-minute demo
+attached to the v0.2.0 release as `rarebit-promo.mp4`. `STORY.md` records the
+scenes, the real demo session they restage, and the checks. It needs Google
+Chrome and ffmpeg:
+
+```sh
+cd brand/promo-video
+npm ci && npm run build
+```
+
+`npm run build` checks reading holds and text sizes, synthesizes the
+soundtrack, renders 1,872 frames, and writes `out/rarebit-promo.mp4`
+(62.4 s). Audio, frames, and renders are derived and ignored. The README
+thumbnail is `promo-video/preview.jpg`. Regenerate it from the final render:
+
+```sh
+ffmpeg -y -ss 15 -i brand/promo-video/out/rarebit-promo.mp4 \
+  -vf scale=960:-1 -frames:v 1 -update 1 brand/promo-video/preview.jpg
+```

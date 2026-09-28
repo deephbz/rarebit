@@ -4,6 +4,13 @@
 
 **[Rarebit website](https://deephbz.github.io/rarebit)**
 
+## Watch the demo
+
+[![Watch the one-minute Rarebit demo](https://raw.githubusercontent.com/deephbz/rarebit/main/brand/promo-video/preview.jpg)](https://github.com/deephbz/rarebit/releases/download/v0.2.0/rarebit-promo.mp4)
+
+[Play the video inline in the release notes](https://github.com/deephbz/rarebit/releases/tag/v0.2.0#watch-the-demo)
+· [Download the MP4](https://github.com/deephbz/rarebit/releases/download/v0.2.0/rarebit-promo.mp4)
+
 Rarebit helps you catch up on a long Pi session without rereading its tool
 traffic. It selects original messages from the active branch so you can read the
 conversation, ask an agent to use it, or start a focused new Session. The

@@ -14,65 +14,75 @@ import {
 
 const freeze = (value) => Object.freeze(value);
 
+// Paperback Chic: an aged-paper page, warm ink, one cheddar cover band, and
+// book typography. Information hygiene: generous margins, one focal line at a
+// time, and noise filed as footnotes instead of deleted. Event-mark colors
+// (user, continuation, boundary, diagnostic) keep their semantic values.
 export const tokens = freeze({
   colors: freeze({
-    paper: "#f6f3ed",
-    paperBright: "#fffdf8",
-    ink: "#17211b",
-    muted: "#5d6a63",
-    faint: "#dfe5df",
-    rule: "#cbd5ce",
+    paper: "#efe6d3",
+    paperBright: "#faf5ea",
+    ink: "#211c16",
+    muted: "#6b6255",
+    faint: "#e3d8c2",
+    rule: "#cdbfa3",
+    cover: "#d9912b",
+    highlight: "#f2c96f",
     user: "#15803d",
     continuation: "#2563eb",
     boundary: "#334155",
     diagnostic: "#b91c1c",
     attention: "#9a3412",
     attentionWash: "#fff7ed",
-    dark: "#102119",
-    darkRaised: "#183127",
-    darkText: "#edf6ef",
+    dark: "#231e18",
+    darkRaised: "#302922",
+    darkText: "#f4ecdc",
   }),
   fonts: freeze({
-    display: "'Lora', Georgia, 'Times New Roman', serif",
-    body: "'Source Sans 3', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
-    mono: "'Source Code Pro', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
+    display: "'EB Garamond', Garamond, 'Times New Roman', serif",
+    body: "'EB Garamond', Garamond, Georgia, serif",
+    label: "'Jost', Futura, 'Century Gothic', 'Avenir Next', sans-serif",
+    mono: "'Courier Prime', 'Courier New', Courier, monospace",
   }),
   radius: freeze({
-    small: 8,
-    medium: 18,
-    large: 28,
+    small: 2,
+    medium: 4,
+    large: 6,
   }),
   spacing: freeze({
     unit: 8,
-    contentMax: 1160,
+    contentMax: 1120,
+    measure: 34,
   }),
 });
 
 export const copy = freeze({
   name: "Rarebit",
-  eyebrow: "A calmer way back into the work",
-  headline: "Catch up on long Pi sessions without rereading the tool traffic.",
+  eyebrow: "A Pi extension for long sessions",
+  headline: "Keep the rare bits of a long Pi session.",
   shortDescription:
-    "Rarebit selects conversational prose on the active branch so you can recover the thread, decide what matters, and continue.",
+    "Rarebit picks out your messages and the agent’s prose replies. Those few lines carry your intent, the progress, and where the agent stopped. Tool traffic stays out, and the source session stays untouched.",
+  tagline: "Keep the rare bits. Leave the traffic.",
   cta: "See how it works",
   install: "pi install npm:@hypercarrier/rarebit@0.2.0",
+  extract: "npx --package @hypercarrier/rarebit@0.2.0 rarebit extract --session <path-or-session-id> --json",
   journeys: freeze([
     freeze({
-      name: "Catch up",
-      label: "Distill",
-      text: "Extract the selected conversation from an exact Session path. No model is needed.",
-      command: "npx --package @hypercarrier/rarebit@0.2.0 rarebit extract --session <path-or-session-id> --json",
+      name: "Recall",
+      label: "Remind the agent",
+      text: "Hand the rare bits back to the agent before its next turn. Rarebit writes them to private local files and sends one request that points the agent to them.",
+      command: "/rarebit recall <request>",
     }),
     freeze({
-      name: "Recall",
-      label: "Give context back",
-      text: "Rarebit writes the selection to private local files and sends Pi one request that points the agent to them. Your model provider sees what the agent reads.",
-      command: "/rarebit recall <prompt>",
+      name: "Summary",
+      label: "Catch up yourself",
+      text: "Ask your model for a short Summary of the rare bits, then read it in Pi with Recap. Summary is optional and needs a configured model.",
+      command: "/rarebit summarize",
     }),
     freeze({
       name: "Fork",
-      label: "Start clean",
-      text: "Start a new Session from the newest selected prose. It does not promise complete context transfer.",
+      label: "Start fresh",
+      text: "Start a new session from the newest rare bits that fit a size budget, with the tool calls left behind. It does not promise complete context transfer.",
       command: "/rarebit fork",
     }),
   ]),
@@ -82,16 +92,24 @@ export const copy = freeze({
       anchor: "src/rarebit-core.mjs:selectRarebits",
     }),
     freeze({
-      text: "Native Pi Session JSONL remains the evidence authority.",
+      text: "The native Pi session JSONL remains the evidence authority.",
       anchor: "README.md#privacy-and-local-data",
     }),
     freeze({
-      text: "Tool inputs, tool results, and hidden reasoning stay out of Rarebits.",
+      text: "Tool inputs, tool results, and hidden reasoning stay out of the rare bits.",
       anchor: "src/rarebit-core.mjs:rarebitMetadata",
     }),
     freeze({
       text: "Summary and Title are optional model-derived projections.",
       anchor: "README.md#configure-optional-derivations",
+    }),
+    freeze({
+      text: "Recall writes private local files and sends Pi one request that points the agent to them.",
+      anchor: "README.md#2-recall-for-the-agent",
+    }),
+    freeze({
+      text: "Fork seeds a new session from a bounded newest suffix of selected prose.",
+      anchor: "README.md#3-fork-as-a-distilled-native-fork",
     }),
   ]),
 });
