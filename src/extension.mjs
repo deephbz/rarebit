@@ -134,9 +134,22 @@ export default function registerPiRarebit(pi, config = {}) {
   const activityReporter =
     explicit.activityReporter ?? createHerdrActivityReporter();
   const recapController = createRarebitRecapController({
+    appendEntry: typeof pi.registerEntryRenderer === "function" && typeof pi.appendEntry === "function"
+      ? (type, data) => pi.appendEntry(type, data) : undefined,
     delayMs: explicit.recap?.delayMs,
     timezone: explicit.recap?.timezone,
   });
+  pi.registerEntryRenderer?.("rarebit-recap", recapController.renderEntry);
+  const acknowledgeRecap = (ctx) => {
+    const result = recapController.acknowledge(ctx);
+    notify(ctx, result.acknowledged ? "Recap marked as read" :
+      result.reason === "already_read" ? "Recap already marked as read" : "No Recap to mark as read in this branch", "info");
+  };
+  if (typeof pi.registerEntryRenderer === "function")
+    pi.registerShortcut?.("ctrl+alt+g", {
+      description: "Mark the latest Recap as read",
+      handler: async (ctx) => acknowledgeRecap(ctx),
+    });
   const projectActivity = (ctx) => {
     const entries = ctx?.sessionManager?.getBranch?.() ?? [];
     return projectRarebitSessionActivity({
@@ -756,6 +769,10 @@ ${fence(requestText)}`;
           `Rarebit auto-title is ${(autoTitleOverride ?? effective.autoTitle ?? true) ? "on" : "off"}`,
           "info",
         );
+        return;
+      }
+      if (subcommand === "got-it") {
+        acknowledgeRecap(ctx);
         return;
       }
       if (subcommand === "recap") {

@@ -1,3 +1,4 @@
+import { recapReadCheckpoint } from "./rarebit-read-checkpoint.mjs";
 import {
   DEFAULT_RAREBIT_SUMMARY_POLICY,
   DEFAULT_RAREBIT_SUMMARY_PROMPT_GUIDANCE,
@@ -151,6 +152,7 @@ export async function processRarebitSummary(ctx, config = {}) {
   const sessionFile = config.sessionFile ?? sessionFileFrom(ctx);
   const sessionId = config.sessionId ?? sessionIdFrom(ctx);
   const selection = selectRarebits(branch);
+  const readCheckpoint = recapReadCheckpoint(branch, selection);
   const measurement = measureRarebits(branch, selection);
   const policy = normalizeRarebitSummaryPolicy(
     config.summaryPolicy ?? DEFAULT_RAREBIT_SUMMARY_POLICY,
@@ -227,7 +229,7 @@ export async function processRarebitSummary(ctx, config = {}) {
     branch: branchRef,
     selection,
     policy,
-    inputPolicy: inputCoveragePolicy,
+    inputPolicy: { ...inputCoveragePolicy, ...(readCheckpoint ? { readCheckpoint } : {}) },
     lifecycleBoundary,
     promptVersion,
     promptIdentity: summaryPrompt.promptIdentity,
@@ -322,6 +324,7 @@ export async function processRarebitSummary(ctx, config = {}) {
     const derivationInput = composeRarebitSummaryDerivationInput(selection, {
       promptVersion,
       summaryPrompt: config.summaryPrompt,
+      readCheckpoint,
       lifecycleBoundary,
       maxPromptChars,
     });

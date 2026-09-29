@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 // authority.
 export const RAREBIT_SELECTOR_VERSION = "rarebit-selector-v1";
 export const RAREBIT_MEASUREMENT_VERSION = "rarebit-prose-chars-div4-v1";
-export const RAREBIT_SUMMARY_PROMPT_VERSION = "rarebit-summary-v6";
+export const RAREBIT_SUMMARY_PROMPT_VERSION = "rarebit-summary-v7";
 export const RAREBIT_SUMMARY_PROMPT_IDENTITY_VERSION =
   "rarebit-summary-prompt-v1";
 // User guidance is a UTF-16 string in JavaScript. Bound it before any Summary
@@ -16,7 +16,7 @@ export const MAX_RAREBIT_SUMMARY_PROMPT_CHARS = 64_000;
 // well below that limit even when the model returns multi-byte text.
 export const MAX_RAREBIT_SUMMARY_CHARS = 8_000;
 export const DEFAULT_RAREBIT_SUMMARY_PROMPT_GUIDANCE =
-  "The summary is free-form prose. State when evidence is uncertain, confusing, contradictory, or importantly missing instead of inventing a coherent account.";
+  "Use 1–2 sentences, at most 300 characters including spaces. Lead with newest changes and needed user action. Flag material uncertainty or conflicting evidence.";
 export const RAREBIT_TITLE_PROMPT_VERSION = "rarebit-title-v1";
 export const RAREBIT_JOB_IDENTITY_VERSION = "rarebit-job-identity-v2";
 
@@ -324,6 +324,7 @@ function summaryPromptParts(messages, {
   omittedMessageCount = 0,
   omittedTextChars = 0,
   summaryPrompt,
+  readCheckpoint,
 } = {}) {
   const ownerRequest = lifecycleBoundary === "owner_request";
   const resolvedPrompt = normalizeRarebitSummaryPrompt(summaryPrompt);
@@ -343,6 +344,7 @@ function summaryPromptParts(messages, {
     "Summarize only what is explicitly stated in the ordered Rarebit evidence stream below.",
     "If an omission record appears, it is authoritative: earlier evidence is unavailable to you. Do not infer what was trimmed, and state when important missing evidence makes the account uncertain or confusing.",
     styleLine,
+    ...(readCheckpoint ? ["A recap_read record marks the evidence covered by the last Recap the user acknowledged. Focus the summary prose on updates AFTER that record, retaining earlier context only when needed to understand them. Acknowledgement does not resolve requests, grant approval, or prove task completion. Assess status against ALL supplied evidence, including unresolved requests before the record. If there are no later updates, say so briefly."] : []),
     "Identify every active, non-superseded request visible in the supplied evidence, not only the last turn. Explicit cancellation, replacement, supersession, and later resolution make an earlier request inactive.",
     "Selected evidence contains only user and assistant message prose at Rarebit continuation or stop boundaries. Tool-call inputs, tool results, hidden reasoning, and transport records are deliberately absent.",
     "Absence of a tool transcript is unobservable and must never by itself imply that work was not performed.",
@@ -377,6 +379,7 @@ export function composeRarebitSummaryDerivationInput(
     lifecycleBoundary = "manual",
     maxPromptChars = Number.MAX_SAFE_INTEGER,
     summaryPrompt,
+    readCheckpoint,
   } = {},
 ) {
   if (
@@ -388,11 +391,19 @@ export function composeRarebitSummaryDerivationInput(
   const resolvedPrompt = normalizeRarebitSummaryPrompt(summaryPrompt);
 
   const allMessages = semanticMessages(selection);
+  if (readCheckpoint) {
+    const index = selection.occurrences.findIndex((item) => item.sourceEntryId === readCheckpoint.coveredEntryId);
+    if (index >= 0) allMessages.splice(index + 1, 0, {
+      type: "recap_read", coveredEntryId: readCheckpoint.coveredEntryId,
+      text: "The user acknowledged the Recap covering evidence through this point.",
+    });
+  }
   let messages = allMessages.slice();
   let omittedMessageCount = 0;
   let omittedTextChars = 0;
   let prompt = renderSummaryPrompt(messages, {
     lifecycleBoundary,
+    readCheckpoint,
     summaryPrompt,
   });
   while (prompt.length > maxPromptChars && messages.length > 1) {
@@ -400,11 +411,12 @@ export function composeRarebitSummaryDerivationInput(
     omittedMessageCount += 1;
     prompt = renderSummaryPrompt(messages, {
       lifecycleBoundary,
+      readCheckpoint,
       omittedMessageCount,
       summaryPrompt,
     });
   }
-  if (prompt.length > maxPromptChars && messages.length === 1) {
+  if (prompt.length > maxPromptChars && messages.length === 1 && messages[0].type !== "recap_read") {
     const original = messages[0].text;
     let low = 0;
     let high = original.length;
@@ -414,6 +426,7 @@ export function composeRarebitSummaryDerivationInput(
       const candidate = [{ ...messages[0], text: original.slice(removed) }];
       const candidatePrompt = renderSummaryPrompt(candidate, {
         lifecycleBoundary,
+        readCheckpoint,
         omittedMessageCount,
         omittedTextChars: removed,
         summaryPrompt,

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Move Recap into the scrollable transcript using native custom-entry renderers,
+  preserving its muted styling. Retain the widget fallback for older Pi hosts.
+- Request 1–2 sentences and at most 300 characters in the default Summary prompt.
+- Add `Ctrl+Alt+G` and `/rarebit got-it` to persist branch-local recap read
+  checkpoints. Subsequent summaries emphasize changes beyond recap coverage.
+- Include a native fullscreen renderer probe documenting Pi 0.84.2's mouse-input
+  limitation; the read affordance currently supports keyboard activation.
+
 ## 0.2.0 — 2026-09-27
 
 - Add the `/rarebit` action palette and tabbed `/rarebit settings` editor.

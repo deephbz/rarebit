@@ -1,3 +1,4 @@
+import { RECAP_ENTRY_TYPE, RECAP_READ_TYPE, latestRecap } from "./rarebit-read-checkpoint.mjs";
 import { exactSelectionApplies } from "./rarebit-artifact-state.mjs";
 import { selectRarebits } from "./rarebit-core.mjs";
 import {
@@ -87,6 +88,7 @@ function observedAtLabel(observedAt, timezone) {
 }
 
 let recapWidgetComponents;
+let loadedComponents;
 
 async function loadRecapWidgetComponents() {
   if (!recapWidgetComponents) {
@@ -97,7 +99,7 @@ async function loadRecapWidgetComponents() {
       Container: tui.Container,
       Text: tui.Text,
       DynamicBorder: agent.DynamicBorder,
-    }));
+    })).then((components) => (loadedComponents = components));
   }
   return recapWidgetComponents;
 }
@@ -111,6 +113,48 @@ function summaryContent(
   const heading = `${mark}Recap · ${presentation.label} · as of ${observedAtLabel(receipt.observedAt, timezone)}`;
   const summary = String(receipt.summary ?? "").trim();
   return { heading, summary };
+}
+
+function recapComponent(content, theme) {
+  const border = (text) => theme.fg("borderMuted", text);
+  const widget = new loadedComponents.Container();
+  const heading = new loadedComponents.Text("", 1, 0);
+  const summary = new loadedComponents.Text("", 1, 0);
+  let previousHeading;
+  let previousSummary;
+  const themed = (text, color, component, previous) => {
+    const rendered = theme.fg(color, text);
+    if (rendered !== previous.value) {
+      previous.value = rendered;
+      component.setText(rendered);
+    }
+  };
+  const themedHeading = {
+    render: (width) => {
+      themed(content.heading, "dim", heading, previousHeading ??= {});
+      return heading.render(width);
+    },
+    invalidate: () => {
+      previousHeading = undefined;
+      heading.invalidate();
+    },
+  };
+  const themedSummary = {
+    render: (width) => {
+      themed(content.summary, "muted", summary, previousSummary ??= {});
+      return summary.render(width);
+    },
+    invalidate: () => {
+      previousSummary = undefined;
+      summary.invalidate();
+    },
+  };
+  widget.addChild(new loadedComponents.DynamicBorder(border));
+  widget.addChild(themedHeading);
+  widget.addChild(themedSummary);
+  if (content.action) widget.addChild(new loadedComponents.Text(theme.fg("dim", content.action), 1, 0));
+  widget.addChild(new loadedComponents.DynamicBorder(border));
+  return widget;
 }
 
 function currentContextOptions(ctx, options) {
@@ -133,13 +177,14 @@ function sameIdentity(left, right) {
 
 /**
  * Private Pi-only presentation controller. It consumes existing receipts and
- * writes only to the interactive TUI widget surface. It never appends to a
- * Session and never invokes a model.
+ * uses native custom entries for scrollable, human-only Recaps and read state.
+ * Older Pi versions retain the widget fallback. It never invokes a model.
  */
 export function createRarebitRecapController({
   delayMs = DEFAULT_RAREBIT_RECAP_DELAY_MS,
   timezone = DEFAULT_RAREBIT_RECAP_TIMEZONE,
   readCurrent = readRarebitCurrent,
+  appendEntry,
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout,
 } = {}) {
@@ -251,7 +296,7 @@ export function createRarebitRecapController({
     const observedOfferEpoch = expectedOfferEpoch ?? offerEpoch;
     const observedIdentity = sessionIdentity(ctx);
     try {
-      const components = await loadRecapWidgetComponents();
+      await loadRecapWidgetComponents();
       if (
         observedControllerGeneration !== controllerGeneration ||
         observedLifecycleGeneration !== liveLifecycleGeneration ||
@@ -264,47 +309,19 @@ export function createRarebitRecapController({
       const content = summaryContent(receipt, {
         timezone: normalizeRarebitRecapTimezone(timezone),
       });
+      if (typeof appendEntry === "function") {
+        const coveredEntryId = selectRarebits(branchSnapshot(ctx)).occurrences.at(-1)?.sourceEntryId;
+        if (!coveredEntryId) return false;
+        appendEntry(RECAP_ENTRY_TYPE, {
+          version: 1, ...content, jobId: receipt.jobId,
+          coveredEntryId, selectionHash: receipt.selection.manifestHash,
+        });
+        return true;
+      }
       target.ui.setWidget(
         RAREBIT_RECAP_WIDGET_KEY,
         (_tui, theme) => {
-          const border = (text) => theme.fg("borderMuted", text);
-          const widget = new components.Container();
-          const heading = new components.Text("", 1, 0);
-          const summary = new components.Text("", 1, 0);
-          let previousHeading;
-          let previousSummary;
-          const themed = (text, color, component, previous) => {
-            const rendered = theme.fg(color, text);
-            if (rendered !== previous.value) {
-              previous.value = rendered;
-              component.setText(rendered);
-            }
-          };
-          const themedHeading = {
-            render: (width) => {
-              themed(content.heading, "dim", heading, previousHeading ??= {});
-              return heading.render(width);
-            },
-            invalidate: () => {
-              previousHeading = undefined;
-              heading.invalidate();
-            },
-          };
-          const themedSummary = {
-            render: (width) => {
-              themed(content.summary, "muted", summary, previousSummary ??= {});
-              return summary.render(width);
-            },
-            invalidate: () => {
-              previousSummary = undefined;
-              summary.invalidate();
-            },
-          };
-          widget.addChild(new components.DynamicBorder(border));
-          widget.addChild(themedHeading);
-          widget.addChild(themedSummary);
-          widget.addChild(new components.DynamicBorder(border));
-          return widget;
+          return recapComponent(content, theme);
         },
         { placement: "aboveEditor" },
       );
@@ -406,12 +423,51 @@ export function createRarebitRecapController({
     return true;
   };
 
+  const renderEntry = (entry, _options, theme) => {
+    if (entry.data?.version !== 1 || typeof entry.data.summary !== "string" ||
+        typeof entry.data.heading !== "string") return undefined;
+    let component;
+    // Resume can render entries before the optional Pi imports settle. Keep a
+    // placeholder while the optional components load, then request a redraw.
+    if (!loadedComponents)
+      void loadRecapWidgetComponents().then(() => clearWidget()).catch(() => {});
+    return {
+      render(width) {
+        if (!loadedComponents) return [theme.fg("dim", "Recap loading…".slice(0, width))];
+        const read = branchSnapshot(liveContext).some((item) =>
+          item.type === "custom" && item.customType === RECAP_READ_TYPE &&
+          item.data?.recapEntryId === entry.id);
+        component = recapComponent({ ...entry.data,
+          action: read ? "✓ got it" : "[got it · Ctrl+Alt+G]" }, theme);
+        return component.render(width);
+      },
+      invalidate() { component?.invalidate(); },
+    };
+  };
+
+  const acknowledge = (ctx) => {
+    if (typeof appendEntry !== "function" || !sameIdentity(sessionIdentity(ctx), sessionIdentity(liveContext)))
+      return { acknowledged: false, reason: "unavailable" };
+    const branch = branchSnapshot(ctx);
+    const recap = latestRecap(branch);
+    if (!recap) return { acknowledged: false, reason: "no_recap" };
+    if (branch.some((entry) => entry.type === "custom" && entry.customType === RECAP_READ_TYPE && entry.data?.recapEntryId === recap.id))
+      return { acknowledged: false, reason: "already_read" };
+    appendEntry(RECAP_READ_TYPE, { version: 1, recapEntryId: recap.id,
+      jobId: recap.data.jobId, coveredEntryId: recap.data.coveredEntryId,
+      selectionHash: recap.data.selectionHash });
+    clearWidget(ctx);
+    return { acknowledged: true };
+  };
+
   const dispose = () => {
     invalidate(undefined, undefined);
     liveContext = undefined;
   };
 
   return {
+    renderEntry,
+    acknowledge,
     captureMaterialization,
     offer,
     showExisting,

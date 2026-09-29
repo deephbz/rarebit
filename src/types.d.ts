@@ -272,6 +272,7 @@ export function composeRarebitSummaryDerivationInput(
     summaryPrompt?: unknown;
     lifecycleBoundary?: "owner_request" | "agent_settled" | "manual";
     maxPromptChars?: number;
+    readCheckpoint?: { coveredEntryId: string } | null;
   }): {
   prompt: string;
   promptIdentity: string | null;
@@ -285,6 +286,7 @@ export function composeRarebitSummaryPrompt(
     summaryPrompt?: unknown;
     lifecycleBoundary?: "owner_request" | "agent_settled" | "manual";
     maxPromptChars?: number;
+    readCheckpoint?: { coveredEntryId: string } | null;
   },
 ): string;
 export function composeRarebitTitlePrompt(

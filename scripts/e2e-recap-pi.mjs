@@ -318,7 +318,7 @@ try {
   const providerRequestCountBeforeTyping = requestCountAtWidget();
 
   // Keystrokes do not emit a Rarebit lifecycle event. The human can keep
-  // editing while the display-only widget remains above the editor.
+  // editing while the display-only Recap remains in the transcript.
   await sendKeys(socket, session, "typed while recap is visible");
   const typingPane = await waitFor(
     "typed editor text while recap remains",
@@ -340,7 +340,7 @@ try {
     "typing/display must not trigger another Summary",
   );
 
-  // Submitted input clears the widget before the next provider request.
+  // Submitted input preserves the historical transcript Recap.
   await press(socket, session, "Enter");
   await waitFor(
     "second provider request",
@@ -351,14 +351,14 @@ try {
     15_000,
   );
   const afterSubmitPane = await waitFor(
-    "recap clear after submitted input",
+    "recap persists after submitted input",
     async () => {
       const pane = await capturePane(socket, session);
-      return !pane.includes("RECAP_SENTINEL") ? pane : false;
+      return pane.includes("RECAP_SENTINEL") ? pane : false;
     },
     5_000,
   );
-  assert.doesNotMatch(afterSubmitPane, /RECAP_SENTINEL/);
+  assert.match(afterSubmitPane, /RECAP_SENTINEL/);
 
   const loggedRequests = (await readFile(requestLog, "utf8"))
     .trim()
@@ -382,7 +382,9 @@ try {
   const sessionText = (
     await Promise.all(sessionFiles.map((path) => readFile(path, "utf8")))
   ).join("\n");
-  assert.doesNotMatch(sessionText, /RECAP_SENTINEL/);
+  const sessionEntries = sessionText.split("\n").filter(Boolean).map(JSON.parse);
+  assert.ok(sessionEntries.some((entry) => entry.type === "custom" && entry.customType === "rarebit-recap" && entry.data.summary.includes("RECAP_SENTINEL")));
+  assert.ok(!sessionEntries.filter((entry) => entry.type === "message").some((entry) => JSON.stringify(entry).includes("RECAP_SENTINEL")));
   const receiptFiles = await walkFiles(rarebitRoot);
   assert.ok(receiptFiles.length > 0, "the real Rarebit sidecar was written");
 
@@ -422,9 +424,9 @@ try {
       checks: [
         "real Pi TUI rendered recap widget after 60 seconds",
         "typing preserved widget",
-        "submitted input cleared widget",
+        "submitted input preserved transcript Recap",
         "next provider request excluded recap sentinel",
-        "Session JSONL excluded recap sentinel",
+        "Session JSONL stored Recap as custom UI state, outside provider messages",
       ],
     }, null, 2),
   );

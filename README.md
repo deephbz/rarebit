@@ -151,6 +151,7 @@ Use the Pi commands for a derivation or presentation:
 /rarebit summarize
 /rarebit title
 /rarebit recap
+/rarebit got-it
 ```
 
 The CLI exposes the same model operations for an exact Session:
@@ -226,7 +227,9 @@ uses this model for Summary and Title; it does not inherit Pi's interactive
 
 Use `/rarebit settings` to edit the dedicated namespace. The editor supports
 global settings and a trusted Project override. Settings apply to future
-operations. The `summary_prompt` value changes Summary format and length, but
+operations. The default Summary prompt requests 1–2 sentences and at most 300
+characters including spaces; this is model guidance, not an enforced truncation.
+Existing custom prompts keep their own length guidance. The `summary_prompt` value changes Summary format and length, but
 Rarebit still owns evidence handling and the structured status contract.
 
 Automatic Summary work runs only at eligible persisted direct-input or settled-
@@ -236,9 +239,23 @@ synthesis. Explicit `/rarebit summarize` or `rarebit summarize --force` remains
 available.
 
 After successful materialization, Recap can offer the current Summary in the Pi
-TUI after one minute by default. The offer stays visible while you type and
-clears when Pi sends input, starts a new turn, changes Session or branch, or
-shuts down. Set `rarebit.recap.enabled` to `false`, change `delay_ms`, or set
+TUI after one minute by default. On Pi with `registerEntryRenderer` (tested on
+0.84.2), it appears in the scrollable transcript with the same muted border and
+prose styling, and survives resume. Older Pi versions retain the pinned widget
+fallback, which clears at input/turn/Session boundaries.
+
+Press **Ctrl+Alt+G** or run `/rarebit got-it` to mark the latest displayed Recap
+in the active branch as read. A small affordance changes to `✓ got it`. Native
+Session JSONL stores a custom read marker pointing to the recap and the last
+evidence entry it covers. New messages arriving before acknowledgement remain
+unread. The next Summary includes the read boundary and emphasizes later
+updates while still checking earlier unresolved requests. Reading a recap does
+not approve or complete work, and does not trigger a model call. The marker is
+branch-local and survives resume; it is unavailable with the legacy widget.
+
+Mouse activation is not supported yet: Pi 0.84.2 consumes fullscreen mouse
+input before extension listeners, so the affordance is a keyboard action.
+Set `rarebit.recap.enabled` to `false`, change `delay_ms`, or set
 `timezone` to `host` or an IANA zone such as `Asia/Hong_Kong`.
 
 ## Privacy and local data
@@ -247,6 +264,9 @@ shuts down. Set `rarebit.recap.enabled` to `false`, change `delay_ms`, or set
   Session but never modifies the source Session.
 - `query` returns metadata and selected occurrence identifiers. `extract`
   returns selected raw prose on demand.
+- Scrollable Recaps and read markers are stored as native custom Session entries.
+  They do not enter the main agent model context. Read-boundary metadata enters
+  subsequent Rarebit Summary requests.
 - Summary and Title send selected prose to the provider and model you
   configure. If the input exceeds `max_input_tokens`, Rarebit sends a newest
   suffix with an explicit omission marker and coverage record.
