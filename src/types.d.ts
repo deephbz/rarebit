@@ -272,6 +272,7 @@ export function composeRarebitSummaryDerivationInput(
     summaryPrompt?: unknown;
     lifecycleBoundary?: "owner_request" | "agent_settled" | "manual";
     maxPromptChars?: number;
+    readCheckpoint?: { coveredEntryId: string } | null;
   }): {
   prompt: string;
   promptIdentity: string | null;
@@ -285,6 +286,7 @@ export function composeRarebitSummaryPrompt(
     summaryPrompt?: unknown;
     lifecycleBoundary?: "owner_request" | "agent_settled" | "manual";
     maxPromptChars?: number;
+    readCheckpoint?: { coveredEntryId: string } | null;
   },
 ): string;
 export function composeRarebitTitlePrompt(
@@ -380,7 +382,8 @@ type RarebitSummaryReceiptCommon = {
   implementationVersion:
     | "hc-rarebit-summary-v4"
     | "hc-rarebit-summary-v5"
-    | "hc-rarebit-summary-v6";
+    | "hc-rarebit-summary-v6"
+    | "hc-rarebit-summary-v7";
   synthesisMode: "forced" | "automatic";
   inputCoveragePolicy: RarebitInputCoveragePolicy;
   promptVersion: string;
@@ -445,7 +448,7 @@ export type RarebitNativeObservation =
   | { availability: "missing" | "unreadable" };
 
 export const RAREBIT_SUMMARY_SCHEMA_VERSION: 4;
-export const RAREBIT_SUMMARY_IMPLEMENTATION_VERSION: "hc-rarebit-summary-v6";
+export const RAREBIT_SUMMARY_IMPLEMENTATION_VERSION: "hc-rarebit-summary-v7";
 export const RAREBIT_INPUT_CHARS_PER_TOKEN: 4;
 export const DEFAULT_RAREBIT_MAX_PROMPT_CHARS: 256000;
 export function processRarebitSummary(

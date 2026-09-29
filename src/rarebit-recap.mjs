@@ -1,4 +1,5 @@
-import { exactSelectionApplies } from "./rarebit-artifact-state.mjs";
+import { RECAP_ENTRY_TYPE, RECAP_READ_TYPE, latestRecap, recapIsRead } from "./rarebit-read-checkpoint.mjs";
+import { exactSelectionApplies, projectRarebitArtifactState } from "./rarebit-artifact-state.mjs";
 import { selectRarebits } from "./rarebit-core.mjs";
 import {
   DEFAULT_RAREBIT_RECAP_DELAY_MS,
@@ -28,65 +29,47 @@ function branchSnapshot(ctx) {
   return Array.isArray(branch) ? branch.slice() : [];
 }
 
-function receiptAppliesToContext(receipt, ctx) {
-  if (receipt?.status !== "ok") return false;
+function receiptCoverage(receipt, ctx) {
+  if (receipt?.status !== "ok") return { state: null, coverage: null };
   const identity = sessionIdentity(ctx);
-  if (!identity.sessionId || !identity.sessionFile) return false;
-  if (receipt.sessionId !== identity.sessionId) return false;
-  const branch = branchSnapshot(ctx);
-  return exactSelectionApplies(receipt.selection, selectRarebits(branch));
+  if (!identity.sessionId || !identity.sessionFile || receipt.sessionId !== identity.sessionId) return { state: null, coverage: null };
+  const selection = selectRarebits(branchSnapshot(ctx));
+  const current = projectRarebitArtifactState({
+    native: { availability: "available", sessionId: identity.sessionId,
+      selection: { ...selection, selectorVersion: selection.manifest.selectorVersion } },
+    materialization: { availability: "available", records: [receipt] },
+  });
+  if (current.receiptRef?.jobId !== receipt.jobId ||
+      !["request_current", "assessment_current"].includes(current.syncState)) return { state: current, coverage: null };
+  if (current.applicability === "exact_selection" && exactSelectionApplies(receipt.selection, selection))
+    return { state: current, coverage: { coveredEntryId: selection.occurrences.at(-1)?.sourceEntryId, selectionHash: receipt.selection.manifestHash } };
+  if (current.applicability === "request_generation") {
+    const covered = selection.occurrences[receipt.selection.occurrenceCount - 1];
+    return { state: current, coverage: covered ? { coveredEntryId: covered.sourceEntryId, selectionHash: receipt.selection.manifestHash } : null };
+  }
+  return { state: current, coverage: null };
 }
 
 function observedAtLabel(observedAt, timezone) {
   const date = new Date(observedAt);
-  if (Number.isNaN(date.valueOf())) return String(observedAt ?? "unknown");
+  if (Number.isNaN(date.valueOf())) return "unknown";
   const usesHostTimezone = timezone === DEFAULT_RAREBIT_RECAP_TIMEZONE;
-  const dateOptions = {
-    dateStyle: "medium",
-    timeStyle: "short",
-    ...(usesHostTimezone ? {} : { timeZone: timezone }),
-  };
-  let dateText;
+  const options = usesHostTimezone ? {} : { timeZone: timezone };
+  const parts = new Intl.DateTimeFormat("en-US", {
+    month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    hourCycle: "h23", ...options,
+  }).formatToParts(date);
+  const value = (type) => parts.find((part) => part.type === type)?.value ?? "00";
+  let offset = "GMT";
   try {
-    dateText = new Intl.DateTimeFormat(undefined, dateOptions).format(date);
-  } catch {
-    dateText = new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(date);
-  }
-
-  let zoneText;
-  try {
-    const zoneOptions = {
-      year: "numeric",
-      month: "numeric",
-      day: "numeric",
-      timeZoneName: "shortOffset",
-      ...(usesHostTimezone ? {} : { timeZone: timezone }),
-    };
-    zoneText = new Intl.DateTimeFormat(undefined, zoneOptions)
-      .formatToParts(date)
-      .find((part) => part.type === "timeZoneName")?.value;
-  } catch {
-    zoneText = undefined;
-  }
-  let resolvedTimezone;
-  try {
-    resolvedTimezone = new Intl.DateTimeFormat(
-      undefined,
-      usesHostTimezone ? {} : { timeZone: timezone },
-    ).resolvedOptions().timeZone;
-  } catch {
-    resolvedTimezone = undefined;
-  }
-  const zoneLabel = usesHostTimezone
-    ? `host${resolvedTimezone ? `: ${resolvedTimezone}` : ""}`
-    : resolvedTimezone ?? timezone;
-  return `${dateText} (${zoneLabel}${zoneText ? `, ${zoneText}` : ""})`;
+    offset = new Intl.DateTimeFormat("en", { timeZoneName: "shortOffset", ...options })
+      .formatToParts(date).find((part) => part.type === "timeZoneName")?.value ?? "GMT";
+  } catch {}
+  return `${value("month")}/${value("day")} ${value("hour")}:${value("minute")}(${offset})`;
 }
 
 let recapWidgetComponents;
+let loadedComponents;
 
 async function loadRecapWidgetComponents() {
   if (!recapWidgetComponents) {
@@ -97,7 +80,9 @@ async function loadRecapWidgetComponents() {
       Container: tui.Container,
       Text: tui.Text,
       DynamicBorder: agent.DynamicBorder,
-    }));
+      truncateToWidth: tui.truncateToWidth,
+      visibleWidth: tui.visibleWidth,
+    })).then((components) => (loadedComponents = components));
   }
   return recapWidgetComponents;
 }
@@ -107,10 +92,60 @@ function summaryContent(
   { timezone = DEFAULT_RAREBIT_RECAP_TIMEZONE } = {},
 ) {
   const presentation = rarebitSummaryPresentation(receipt.sessionStatus);
-  const mark = presentation.mark ? `${presentation.mark} ` : "";
-  const heading = `${mark}Recap · ${presentation.label} · as of ${observedAtLabel(receipt.observedAt, timezone)}`;
+  const mark = presentation.mark ?? "";
+  const heading = `${mark}Recap·${presentation.label.replaceAll(" ", "")}·${observedAtLabel(receipt.observedAt, timezone)}`;
   const summary = String(receipt.summary ?? "").trim();
   return { heading, summary };
+}
+
+function recapComponent(content, theme) {
+  const border = (text) => theme.fg("borderMuted", text);
+  const widget = new loadedComponents.Container();
+  const summary = new loadedComponents.Text("", 1, 0);
+  const compactSummary = new loadedComponents.Text("", 0, 0);
+  let previousSummary;
+  let previousCompactSummary;
+  const themed = (text, color, component, previous) => {
+    const rendered = theme.fg(color, text);
+    if (rendered !== previous.value) {
+      previous.value = rendered;
+      component.setText(rendered);
+    }
+  };
+  const themedHeading = {
+    render(width) {
+      const action = content.action
+        ? loadedComponents.truncateToWidth(theme.fg("dim", content.action), Math.max(0, width), "")
+        : "";
+      const actionWidth = loadedComponents.visibleWidth(action);
+      const heading = loadedComponents.truncateToWidth(
+        theme.fg("dim", content.heading), Math.max(0, width - actionWidth), "",
+      );
+      return [`${heading}${action}`];
+    },
+    invalidate() {},
+  };
+  const themedSummary = {
+    render(width) {
+      if (width < 3) {
+        themed(content.summary, "muted", compactSummary, previousCompactSummary ??= {});
+        return compactSummary.render(width);
+      }
+      themed(content.summary, "muted", summary, previousSummary ??= {});
+      return summary.render(width);
+    },
+    invalidate() {
+      previousSummary = undefined;
+      previousCompactSummary = undefined;
+      summary.invalidate();
+      compactSummary.invalidate();
+    },
+  };
+  widget.addChild(new loadedComponents.DynamicBorder(border));
+  widget.addChild(themedHeading);
+  widget.addChild(themedSummary);
+  widget.addChild(new loadedComponents.DynamicBorder(border));
+  return widget;
 }
 
 function currentContextOptions(ctx, options) {
@@ -133,13 +168,14 @@ function sameIdentity(left, right) {
 
 /**
  * Private Pi-only presentation controller. It consumes existing receipts and
- * writes only to the interactive TUI widget surface. It never appends to a
- * Session and never invokes a model.
+ * uses native custom entries for scrollable, human-only Recaps and read state.
+ * Older Pi versions retain the widget fallback. It never invokes a model.
  */
 export function createRarebitRecapController({
   delayMs = DEFAULT_RAREBIT_RECAP_DELAY_MS,
   timezone = DEFAULT_RAREBIT_RECAP_TIMEZONE,
   readCurrent = readRarebitCurrent,
+  appendEntry,
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout,
 } = {}) {
@@ -223,88 +259,65 @@ export function createRarebitRecapController({
       ...currentContextOptions(ctx, options),
     });
     const receipt = current?.receipt;
-    if (!receiptAppliesToContext(receipt, ctx)) return null;
     const artifactState = current?.artifactState;
-    if (
-      !["request_current", "assessment_current"].includes(
-        artifactState?.syncState,
-      ) ||
-      !["request_generation", "exact_selection"].includes(
-        artifactState?.applicability,
-      ) ||
-      artifactState?.receiptRef?.jobId !== receipt.jobId ||
-      artifactState?.projection?.status !== receipt.sessionStatus
-    )
-      return null;
-    return receipt;
+    if (!receipt || !["request_current", "assessment_current"].includes(artifactState?.syncState) ||
+        !["request_generation", "exact_selection"].includes(artifactState?.applicability) ||
+        artifactState?.receiptRef?.jobId !== receipt.jobId ||
+        artifactState?.projection?.status !== receipt.sessionStatus)
+      return { receipt: null, reason: artifactState?.projection?.reason ?? artifactState?.retry?.reason ?? artifactState?.syncState ?? "no_summary" };
+    const projection = receiptCoverage(receipt, ctx);
+    return projection.coverage ? { receipt, coverage: projection.coverage } : {
+      receipt: null, reason: projection.state?.retry?.reason ?? projection.state?.projection?.reason ?? projection.state?.syncState ?? "stale_or_divergent",
+    };
   };
 
   const display = async (
     ctx,
     receipt,
-    { timezone = recapTimezone, token, expectedOfferEpoch } = {},
+    { timezone = recapTimezone, token, expectedOfferEpoch, storeOptions } = {},
   ) => {
     const target = tuiContext(ctx);
-    if (!target || !receiptAppliesToContext(receipt, ctx)) return false;
+    let coverage = receiptCoverage(receipt, ctx).coverage;
+    if (!target || !coverage) return false;
     const observedControllerGeneration = controllerGeneration;
     const observedLifecycleGeneration = liveLifecycleGeneration;
     const observedOfferEpoch = expectedOfferEpoch ?? offerEpoch;
     const observedIdentity = sessionIdentity(ctx);
     try {
-      const components = await loadRecapWidgetComponents();
+      await loadRecapWidgetComponents();
+      const current = await readReceipt(liveContext, storeOptions).catch(() => null);
       if (
         observedControllerGeneration !== controllerGeneration ||
         observedLifecycleGeneration !== liveLifecycleGeneration ||
         observedOfferEpoch !== offerEpoch ||
         (token && !tokenIsCurrent(token)) ||
         !sameIdentity(observedIdentity, sessionIdentity(liveContext)) ||
-        !receiptAppliesToContext(receipt, liveContext)
+        !current?.receipt || current.receipt.jobId !== receipt.jobId ||
+        current.coverage.coveredEntryId !== coverage.coveredEntryId ||
+        current.coverage.selectionHash !== coverage.selectionHash
       )
         return false;
+      receipt = current.receipt;
+      coverage = current.coverage;
       const content = summaryContent(receipt, {
         timezone: normalizeRarebitRecapTimezone(timezone),
       });
+      if (typeof appendEntry === "function") {
+        const existing = branchSnapshot(ctx).findLast((entry) =>
+          entry.type === "custom" && entry.customType === RECAP_ENTRY_TYPE &&
+          entry.data?.version === 1 && entry.data.jobId === receipt.jobId &&
+          entry.data.coveredEntryId === coverage.coveredEntryId &&
+          entry.data.selectionHash === coverage.selectionHash);
+        if (!existing) appendEntry(RECAP_ENTRY_TYPE, {
+          version: 1, ...content, jobId: receipt.jobId,
+          coveredEntryId: coverage.coveredEntryId, selectionHash: coverage.selectionHash,
+        });
+        return true;
+      }
       target.ui.setWidget(
         RAREBIT_RECAP_WIDGET_KEY,
         (_tui, theme) => {
-          const border = (text) => theme.fg("borderMuted", text);
-          const widget = new components.Container();
-          const heading = new components.Text("", 1, 0);
-          const summary = new components.Text("", 1, 0);
-          let previousHeading;
-          let previousSummary;
-          const themed = (text, color, component, previous) => {
-            const rendered = theme.fg(color, text);
-            if (rendered !== previous.value) {
-              previous.value = rendered;
-              component.setText(rendered);
-            }
-          };
-          const themedHeading = {
-            render: (width) => {
-              themed(content.heading, "dim", heading, previousHeading ??= {});
-              return heading.render(width);
-            },
-            invalidate: () => {
-              previousHeading = undefined;
-              heading.invalidate();
-            },
-          };
-          const themedSummary = {
-            render: (width) => {
-              themed(content.summary, "muted", summary, previousSummary ??= {});
-              return summary.render(width);
-            },
-            invalidate: () => {
-              previousSummary = undefined;
-              summary.invalidate();
-            },
-          };
-          widget.addChild(new components.DynamicBorder(border));
-          widget.addChild(themedHeading);
-          widget.addChild(themedSummary);
-          widget.addChild(new components.DynamicBorder(border));
-          return widget;
+          return recapComponent(content, theme);
         },
         { placement: "aboveEditor" },
       );
@@ -321,25 +334,23 @@ export function createRarebitRecapController({
     const observedGeneration = controllerGeneration;
     const observedOfferEpoch = offerEpoch;
     const identity = sessionIdentity(ctx);
-    const receipt = await readReceipt(ctx, options).catch(() => null);
+    const current = await readReceipt(ctx, options).catch(() => null);
     if (
       observedGeneration !== controllerGeneration ||
       observedOfferEpoch !== offerEpoch ||
       !sameIdentity(identity, sessionIdentity(liveContext))
     )
       return { shown: false, reason: "stale" };
-    if (!receipt) {
+    if (!current?.receipt) {
       clearWidget(ctx);
-      return { shown: false, reason: "no_current_summary" };
+      return { shown: false, reason: current?.reason ?? "no_current_summary" };
     }
-    return {
-      shown: await display(ctx, receipt, {
-        timezone: options.timezone ?? options.recapTimezone ?? recapTimezone,
-        expectedOfferEpoch: observedOfferEpoch,
-      }),
-      reason: "current_summary",
-      receipt,
-    };
+    const shown = await display(ctx, current.receipt, {
+      storeOptions: options,
+      timezone: options.timezone ?? options.recapTimezone ?? recapTimezone,
+      expectedOfferEpoch: observedOfferEpoch,
+    });
+    return { shown, reason: shown ? "current_summary" : "stale_or_unavailable", receipt: current.receipt };
   };
 
   const offer = ({ ctx, result, token, ...options }) => {
@@ -379,7 +390,7 @@ export function createRarebitRecapController({
       const current = liveContext;
       const currentIdentity = sessionIdentity(current);
       if (!sameIdentity(offerState.identity, currentIdentity)) return;
-      const receipt = await readReceipt(current, offerState.options).catch(
+      const currentReceipt = await readReceipt(current, offerState.options).catch(
         () => null,
       );
       if (
@@ -387,8 +398,9 @@ export function createRarebitRecapController({
         !tokenIsCurrent(offerState.token)
       )
         return;
-      if (!receipt || receipt.jobId !== offerState.record.jobId) return;
-      if (await display(current, receipt, {
+      if (!currentReceipt?.receipt || currentReceipt.receipt.jobId !== offerState.record.jobId) return;
+      if (await display(current, currentReceipt.receipt, {
+        storeOptions: offerState.options,
         token: offerState.token,
         expectedOfferEpoch: offerState.offerEpoch,
         timezone:
@@ -406,12 +418,49 @@ export function createRarebitRecapController({
     return true;
   };
 
+  const renderEntry = (entry, _options, theme) => {
+    if (entry.data?.version !== 1 || typeof entry.data.summary !== "string" ||
+        typeof entry.data.heading !== "string") return undefined;
+    let component;
+    // Resume can render entries before the optional Pi imports settle. Keep a
+    // placeholder while the optional components load, then request a redraw.
+    if (!loadedComponents)
+      void loadRecapWidgetComponents().then(() => clearWidget()).catch(() => {});
+    return {
+      render(width) {
+        if (!loadedComponents) return [theme.fg("dim", "Recap loading…".slice(0, width))];
+        const read = recapIsRead(branchSnapshot(liveContext), entry);
+        component = recapComponent({ ...entry.data,
+          action: read ? " ✓ got it" : " [got it]" }, theme);
+        return component.render(width);
+      },
+      invalidate() { component?.invalidate(); },
+    };
+  };
+
+  const acknowledge = (ctx) => {
+    if (typeof appendEntry !== "function" || !sameIdentity(sessionIdentity(ctx), sessionIdentity(liveContext)))
+      return { acknowledged: false, reason: "unavailable" };
+    const branch = branchSnapshot(ctx);
+    const recap = latestRecap(branch);
+    if (!recap) return { acknowledged: false, reason: "no_recap" };
+    if (recapIsRead(branch, recap))
+      return { acknowledged: false, reason: "already_read" };
+    appendEntry(RECAP_READ_TYPE, { version: 1, recapEntryId: recap.id,
+      jobId: recap.data.jobId, coveredEntryId: recap.data.coveredEntryId,
+      selectionHash: recap.data.selectionHash });
+    clearWidget(ctx);
+    return { acknowledged: true };
+  };
+
   const dispose = () => {
     invalidate(undefined, undefined);
     liveContext = undefined;
   };
 
   return {
+    renderEntry,
+    acknowledge,
     captureMaterialization,
     offer,
     showExisting,

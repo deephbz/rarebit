@@ -204,14 +204,15 @@ export default function registerFixtureRarebit(pi) {
     return output.includes("FULL_RECAP_TAIL_24") ? output : false;
   }, 75_000);
   const widgetAnsi = await pane(socket, session, true);
-  assert.match(widgetPane, /Recap/);
+  assert.match(widgetPane, /Recap·appearsfinished·[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}\(GMT[+-][0-9][^\n]*\[got it\]/);
+  assert.match(widgetPane, /\[got it\]/);
   assert.match(widgetPane, /FULL_RECAP_TAIL_1/);
   assert.match(widgetPane, /FULL_RECAP_TAIL_24/);
   assert.doesNotMatch(widgetPane, /recap expand/i);
   assert.match(widgetAnsi, /\x1b\[[0-9;]*m/);
   assert.match(widgetAnsi, /Recap/);
-  assert.match(widgetAnsi, /\x1b\[38;5;241m[^\n]*Recap/, "Recap header uses the muted foreground");
-  assert.match(widgetAnsi, /\x1b\[38;5;244m[^\n]*FULL_RECAP_TAIL_1/, "Recap body uses the faded foreground");
+  assert.match(widgetAnsi, /\x1b\[38;(?:5;241|2;102;102;102)m[^\n]*Recap/, "Recap header uses the muted foreground");
+  assert.match(widgetAnsi, /\x1b\[38;(?:5;244|2;128;128;128)m[^\n]*FULL_RECAP_TAIL_1/, "Recap body uses the faded foreground");
   assert.ok(Date.now() - summaryAt >= 59_750, "Recap rendered before the one-minute default");
 
   const requestCountAtWidget = requests.length;
@@ -225,17 +226,18 @@ export default function registerFixtureRarebit(pi) {
 
   await press(socket, session, "Enter");
   await waitFor("second provider request", async () => requests.filter((entry) => entry.kind === "interactive").length >= 2, 15_000);
-  const afterSubmit = await waitFor("Recap clear after submit", async () => {
+  const afterSubmit = await waitFor("second interactive response", async () => {
     const output = await pane(socket, session);
-    return !output.includes("FULL_RECAP_TAIL_24") ? output : false;
-  }, 5_000);
-  assert.doesNotMatch(afterSubmit, /FULL_RECAP_TAIL_24/);
+    return output.includes("INTERACTIVE_2_DONE") ? output : false;
+  }, 15_000);
 
   const secondInteractive = requests.filter((entry) => entry.kind === "interactive")[1];
   assert.doesNotMatch(JSON.stringify(secondInteractive.body), /FULL_RECAP_TAIL/);
   const sessionFiles = (await walk(sessionDir)).filter((file) => file.endsWith(".jsonl"));
   const sessionText = (await Promise.all(sessionFiles.map((file) => readFile(file, "utf8")))).join("\n");
-  assert.doesNotMatch(sessionText, /FULL_RECAP_TAIL/);
+  const nativeEntries = sessionText.split("\n").filter(Boolean).map(JSON.parse);
+  assert.ok(nativeEntries.some((entry) => entry.type === "custom" && entry.customType === "rarebit-recap" && entry.data?.summary?.includes("FULL_RECAP_TAIL_24")), "the scrollable Recap is persisted as native custom evidence");
+  assert.ok(!nativeEntries.filter((entry) => entry.type === "message").some((entry) => JSON.stringify(entry).includes("FULL_RECAP_TAIL")), "Recap prose stays out of model conversation messages");
   const settings = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8"));
   assert.deepEqual(settings.other_extension, { preserve: true });
   assert.equal(settings.rarebit.summary_prompt, "Use short factual bullets and state uncertainty.");
@@ -251,7 +253,7 @@ export default function registerFixtureRarebit(pi) {
     elapsedFromSummaryMs: Date.now() - summaryAt,
     providerRequests: requests.length,
     evidenceRoot: keepTemp ? temp : null,
-    checks: [artifactLabel, "custom summary_prompt reached provider", "full multiline Recap tail rendered", "ANSI themed widget rendered", "typing preserved Recap", "submit cleared Recap", "display content excluded from next provider and Session"],
+    checks: [artifactLabel, "custom summary_prompt reached provider", "full multiline native Recap rendered", "ANSI themed Recap rendered", "typing preserved Recap", "native Recap evidence survived submit", "display content excluded from next provider conversation messages"],
   }, null, 2));
 } catch (error) {
   console.error(`Rarebit v0.2 Pi E2E failed: ${error?.stack ?? error}`);
@@ -265,5 +267,5 @@ export default function registerFixtureRarebit(pi) {
     await execFile(tmux, ["-L", socket, "kill-server"]).catch(() => {});
   }
   if (provider?.listening) await new Promise((resolvePromise) => provider.close(resolvePromise));
-  if (!keepTemp) await rm(temp, { recursive: true, force: true });
+  if (!keepTemp) await rm(temp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

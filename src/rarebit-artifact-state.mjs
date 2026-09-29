@@ -383,6 +383,7 @@ export function validateRarebitArtifactReceipt(record) {
       "hc-rarebit-summary-v4",
       "hc-rarebit-summary-v5",
       "hc-rarebit-summary-v6",
+      "hc-rarebit-summary-v7",
     ].includes(
       record.implementationVersion,
     ) ||
@@ -407,7 +408,7 @@ export function validateRarebitArtifactReceipt(record) {
   if (
     (hasInputCoverage && !validInputCoverage(record.inputCoverage)) ||
     (record.status === "ok" &&
-      ["hc-rarebit-summary-v5", "hc-rarebit-summary-v6"].includes(
+      ["hc-rarebit-summary-v5", "hc-rarebit-summary-v6", "hc-rarebit-summary-v7"].includes(
         record.implementationVersion,
       ) &&
       !hasInputCoverage)
@@ -776,16 +777,7 @@ export function projectRarebitArtifactState({
   const settled = newest(
     exact.filter(({ record }) => record.lifecycleBoundary === "agent_settled"),
   );
-  if (settled && (!activeRequest || newerThan(settled, activeRequest)))
-    return result({
-      syncState: "assessment_current",
-      projection: projection(settled.record),
-      applicability: "exact_selection",
-      nativeRef: nativeReference(native),
-      receiptRef: ref(settled.record),
-      retry: null,
-    });
-  if (activeRequest) {
+  if (activeRequest && !(settled && newerThan(settled, activeRequest))) {
     const cutLength = activeRequest.record.selection.occurrenceCount;
     const settlementPending = native.selection.occurrences
       .slice(cutLength)
@@ -805,7 +797,11 @@ export function projectRarebitArtifactState({
     });
   }
   const assessment = newest(
-    exact.filter(({ record }) => record.lifecycleBoundary !== "owner_request"),
+    exact.filter(({ record }) =>
+      record.lifecycleBoundary === "agent_settled" ||
+      record.lifecycleBoundary === "manual" ||
+      record.lifecycleBoundary === "session_start",
+    ),
   );
   if (assessment)
     return result({

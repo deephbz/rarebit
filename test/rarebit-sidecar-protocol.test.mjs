@@ -328,6 +328,26 @@ test("compact exact and owner-request prefix applicability re-derives native man
   };
   assert.equal(exactSelectionApplies(exact, current), true);
 });
+test("store promotes a newer manual assessment after an older settled receipt", async () => {
+  const f = await fixture();
+  const branch = [entry("u", "user", "Synthetic request"), entry("a", "assistant", "Synthetic completion")];
+  await writeFile(f.sessionFile, [JSON.stringify({ type: "session", id: "s" }), ...branch.map(JSON.stringify)].join("\n") + "\n");
+  const ctx = { sessionManager: { getHeader: () => ({ id: "s" }), getSessionFile: () => f.sessionFile, getBranch: () => branch } };
+  const config = {
+    sessionRoot: f.sessionRoot, rarebitRoot: f.rarebitRoot,
+    summaryPolicy: { minTotalLength: 0, maxRarebitRatio: 1 },
+    model: { provider: "test", id: "model" },
+    modelClient: { complete: async () => JSON.stringify({ summary: "Synthetic current assessment", sessionStatus: "finished", statusReason: "all_requests_accomplished" }) },
+  };
+  const settled = await processRarebitSummary(ctx, { ...config, lifecycleBoundary: "agent_settled" });
+  const manual = await processRarebitSummary(ctx, { ...config, lifecycleBoundary: "manual", forceSynthesis: true });
+  assert.notEqual(settled.record.jobId, manual.record.jobId);
+  const current = await readRarebitCurrent({ sessionFile: f.sessionFile, sessionRoot: f.sessionRoot, rarebitRoot: f.rarebitRoot });
+  assert.equal(current.artifactState.syncState, "assessment_current");
+  assert.equal(current.artifactState.receiptRef.jobId, manual.record.jobId);
+  assert.equal(current.receipt.lifecycleBoundary, "manual");
+});
+
 test("generated successful and terminal failure receipts satisfy runtime and JSON Schema closure", async () => {
   const f = await fixture();
   const success = await materialize(f, [entry("u", "user", "x")]);

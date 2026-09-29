@@ -285,12 +285,18 @@ test("only agent_settled ends an active request generation; exact start/manual c
     });
     assert.equal(state.syncState, "request_current");
   }
+  const exact = [owner, continuation];
+  const settled = receipt({ occurrences: exact, boundary: "agent_settled", observedAt: "2026-07-25T10:03:00.000Z" });
+  const newerManual = receipt({ occurrences: exact, boundary: "manual", observedAt: "2026-07-25T10:04:00.000Z" });
+  const promoted = projectRarebitArtifactState({
+    native: native(exact),
+    materialization: { availability: "available", records: [settled, newerManual] },
+  });
+  assert.equal(promoted.syncState, "assessment_current");
+  assert.equal(promoted.receiptRef.lifecycleBoundary, "manual");
   const manualOnly = projectRarebitArtifactState({
     native: native([owner]),
-    materialization: {
-      availability: "available",
-      records: [receipt({ boundary: "manual" })],
-    },
+    materialization: { availability: "available", records: [receipt({ boundary: "manual" })] },
   });
   assert.equal(manualOnly.syncState, "assessment_current");
 });

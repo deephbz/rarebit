@@ -160,6 +160,56 @@ test("bounded Summary input retains newest evidence and declares every omission"
   assert.equal(DEFAULT_RAREBIT_MAX_PROMPT_CHARS, 256_000);
 });
 
+test("read checkpoints stay metadata beside a retained evidence suffix and do not replace pending approval", () => {
+  const selection = selectRarebits([
+    entry("early", { role: "user", content: `EARLY-${"e".repeat(5_000)}` }),
+    entry("approval", { role: "assistant", stopReason: "stop", content: `${"p".repeat(5_000)}-APPROVAL-STILL-NEEDED` }),
+  ]);
+  const input = composeRarebitSummaryDerivationInput(selection, {
+    maxPromptChars: 6_000,
+    readCheckpoint: { coveredEntryId: "approval", coveredOrder: 1 },
+  });
+  const lines = input.prompt.split("BEGIN_RAREBIT_MESSAGES_JSONL\n")[1].split("\nEND_RAREBIT_MESSAGES_JSONL")[0].split("\n").map(JSON.parse);
+  assert.ok(input.prompt.length <= 6_000);
+  assert.equal(input.coverage.totalMessageCount, 2);
+  assert.equal(input.coverage.includedMessageCount, 1);
+  assert.ok(lines.some((line) => line.type === "recap_read"));
+  assert.ok(lines.some((line) => line.text?.includes("APPROVAL-STILL-NEEDED")));
+  assert.doesNotMatch(input.prompt, /EARLY-/);
+  assert.match(input.prompt, /omitted|trimmed/);
+});
+
+test("read boundaries stay before, at, or after the retained evidence suffix", () => {
+  const selection = selectRarebits(Array.from({ length: 4 }, (_, index) =>
+    entry(`u${index}`, { role: "user", content: `evidence-${index}-${"x".repeat(1_200)}` })));
+  for (const coveredIndex of [0, 1, 3]) {
+    const input = composeRarebitSummaryDerivationInput(selection, {
+      maxPromptChars: 7_500,
+      readCheckpoint: { coveredEntryId: `u${coveredIndex}`, coveredOrder: coveredIndex },
+    });
+    const body = input.prompt.split("BEGIN_RAREBIT_MESSAGES_JSONL\n")[1].split("\nEND_RAREBIT_MESSAGES_JSONL")[0];
+    const lines = body.split("\n").map(JSON.parse);
+    const ordered = lines.filter((line) => !line.omitted);
+    const readIndex = ordered.findIndex((line) => line.type === "recap_read");
+    const evidence = ordered.filter((line) => line.type !== "recap_read");
+    assert.ok(input.coverage.omittedMessageCount > 0);
+    assert.ok(input.prompt.length <= 7_500);
+    if (coveredIndex === 0) assert.equal(readIndex, 0, "a boundary before the suffix leads it");
+    if (coveredIndex === 1) assert.equal(readIndex, 1, "a boundary at the first retained message follows it");
+    if (coveredIndex === 3) assert.equal(readIndex, evidence.length, "a boundary after the suffix follows all retained messages");
+  }
+});
+
+test("fixed prompt overflow preserves evidence when even empty trimmed input cannot fit", () => {
+  const text = "PENDING-APPROVAL-" + "x".repeat(500);
+  const selection = selectRarebits([entry("u", { role: "user", content: text })]);
+  const input = composeRarebitSummaryDerivationInput(selection, { maxPromptChars: 3_100 });
+  assert.ok(input.prompt.length > 3_100);
+  assert.equal(input.coverage.omittedTextChars, 0);
+  assert.match(input.prompt, /PENDING-APPROVAL/);
+  assert.doesNotMatch(input.prompt, /leading characters.*trimmed/);
+});
+
 test("one oversized newest message is tail-bounded with an explicit character omission", () => {
   const selection = selectRarebits([
     entry("huge", {

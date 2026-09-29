@@ -15,7 +15,8 @@ import {
   processRarebitSummary,
 } from "../src/rarebit-service.mjs";
 import { createRarebitRecapController } from "../src/rarebit-recap.mjs";
-import { selectRarebits } from "../src/rarebit-core.mjs";
+import { selectRarebits, sha256 } from "../src/rarebit-core.mjs";
+import { extractRarebitSynthesisReceipt } from "../src/rarebit-model.mjs";
 import registerPiRarebit, { readConfiguredRarebitSettings } from "../src/extension.mjs";
 import {
   RAREBIT_SETTINGS_TABS,
@@ -151,6 +152,20 @@ test("recap renders the human label and converts the receipt timestamp to the co
     { id: "a1", type: "message", message: { role: "assistant", content: [{ type: "text", text: "A response" }] } },
   ];
   const selection = selectRarebits(branch);
+  const observedAt = "2026-01-01T00:00:00.000Z";
+  const model = { provider: "fixture", id: "summary" };
+  const receipt = {
+    schemaVersion: 4, type: "rarebit_summary", status: "ok", jobId: sha256("job-1"), sessionId: "session-1",
+    branch: { leafId: "a1", entryCount: 2, pathHash: sha256(["u1", "a1"]) }, observedAt,
+    selection: { manifestHash: selection.manifestHash, selectorVersion: selection.manifest.selectorVersion,
+      occurrenceCount: selection.occurrences.length, uniquePayloadCount: selection.payloads.length, latestUserSourceEntryId: "u1" },
+    lifecycleBoundary: "agent_settled", implementationVersion: "hc-rarebit-summary-v7", synthesisMode: "forced",
+    inputCoveragePolicy: { strategy: "newest_suffix_with_explicit_omission", maxPromptChars: 10_000 },
+    promptVersion: "rarebit-summary-v8", model, modelProvenance: { source: "test", status: "resolved" },
+    summary: "A current summary.", sessionStatus: "needs_attention", statusReason: "approval",
+    inputCoverage: { totalMessageCount: selection.occurrences.length, includedMessageCount: selection.occurrences.length, omittedMessageCount: 0, omittedTextChars: 0, promptChars: 100, complete: true },
+    synthesis: extractRarebitSynthesisReceipt({}, { requestedModel: model, startedAt: observedAt, completedAt: observedAt, durationMs: 0 }),
+  };
   const widgets = [];
   const context = {
     mode: "tui",
@@ -165,31 +180,20 @@ test("recap renders the human label and converts the receipt timestamp to the co
   const controller = createRarebitRecapController({
     timezone: "Asia/Hong_Kong",
     readCurrent: async () => ({
-      receipt: {
-        status: "ok",
-        jobId: "job-1",
-        sessionId: "session-1",
-        observedAt: "2026-01-01T00:00:00.000Z",
-        sessionStatus: "needs_attention",
-        summary: "A current summary.",
-        selection: {
-          manifestHash: selection.manifestHash,
-          selectorVersion: selection.manifest.selectorVersion,
-        },
-      },
+      receipt,
       artifactState: {
         syncState: "assessment_current",
         applicability: "exact_selection",
-        receiptRef: { jobId: "job-1" },
+        receiptRef: { jobId: receipt.jobId },
         projection: { status: "needs_attention" },
       },
     }),
   });
   const result = await controller.showExisting(context);
   assert.equal(result.shown, true);
-  const heading = widgets[0]({ requestRender() {} }, { fg: (_name, text) => text }).render(200).find((line) => line.includes("Recap ·")).trim();
-  assert.match(heading, /^(?:◆! )?Recap · needs you · as of /);
-  assert.match(heading, /Asia\/Hong_Kong/);
+  const heading = widgets[0]({ requestRender() {} }, { fg: (_name, text) => text }).render(200).find((line) => line.includes("Recap·")).trim();
+  assert.match(heading, /^(?:◆!)?Recap·needsyou·01\/01 08:00\(GMT\+8\)/);
+  assert.doesNotMatch(heading, /as of|2026|Asia\/Hong_Kong/);
   assert.doesNotMatch(heading, /Rarebit Summary/);
 });
 
@@ -198,6 +202,7 @@ test("quiet Summary diagnostics still report materialization failures", async ()
   const handlers = new Map();
   const commands = new Map();
   const notices = [];
+  let providerCalls = 0;
   registerPiRarebit(
     {
       on: (event, handler) => handlers.set(event, handler),
@@ -209,7 +214,7 @@ test("quiet Summary diagnostics still report materialization failures", async ()
       sessionRoot: root,
       rarebitRoot: join(root, "rarebit"),
       queryAutomaticSummaryPolicy: async () => ({ decision: "abstain", queryStatus: "test" }),
-      modelClient: { complete: async () => ({ text: "not valid JSON" }) },
+      modelClient: { complete: async () => { providerCalls += 1; throw new Error("synthetic provider failure"); } },
       diagnostics: { summaryTriggered: false, summaryUpdated: false },
     },
   );
@@ -230,11 +235,18 @@ test("quiet Summary diagnostics still report materialization failures", async ()
     ui: { notify: (text, level) => notices.push({ text, level }) },
   };
   handlers.get("session_start")({}, context);
+  const waitForFailure = async (count) => {
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline && notices.filter(({ text, level }) => level === "error" && /Summary failed/.test(text)).length < count)
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(notices.filter(({ text, level }) => level === "error" && /Summary failed/.test(text)).length, count);
+  };
   await commands.get("rarebit").handler("summarize", context);
-  const deadline = Date.now() + 2_000;
-  while (Date.now() < deadline && !notices.some(({ text }) => /Summary failed/.test(text)))
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  assert.ok(notices.some(({ text, level }) => level === "error" && /Summary failed/.test(text)));
+  await waitForFailure(1);
+  await commands.get("rarebit").handler("summarize", context);
+  await waitForFailure(2);
+  assert.equal(providerCalls, 1, "the cached failure reuses the original provider outcome");
+  assert.equal(notices.some(({ text }) => /already current|updated and current/.test(text)), false);
   assert.equal(notices.some(({ text }) => /Summary triggered/.test(text)), false);
 });
 

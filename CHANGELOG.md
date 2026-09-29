@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.1 — 2026-09-29
+
+- Move Recap into the scrollable transcript using native custom-entry renderers,
+  preserving its muted styling. Retain the widget fallback for older Pi hosts.
+- Request 1–2 sentences and at most 300 characters in the default Summary prompt.
+- Add `Ctrl+Alt+G` and `/rarebit got-it` to persist branch-local recap read
+  checkpoints. Subsequent summaries emphasize changes beyond recap coverage.
+- Reuse native Recaps for the same receipt and coverage, including after read
+  acknowledgement and resume. Validate read markers against branch evidence.
+- Keep conversation evidence beside read metadata when Summary input is trimmed.
+- Promote newer manual assessments after settlement. Preserve active requests
+  until an agent-settled assessment closes them.
+- Display current request-prefix Recaps with their exact receipt coverage.
+  Revalidate live branch state after asynchronous reads.
+- Report explicit Summary outcomes even when automatic notices are disabled.
+- Shorten Recap headers to numeric date, 24-hour time, and GMT offset. Keep
+  the got-it action inline.
+- Include a native fullscreen renderer probe documenting Pi 0.84.2's mouse-input
+  limitation; the read affordance currently supports keyboard activation.
+
 ## 0.2.0 — 2026-09-27
 
 - Add the `/rarebit` action palette and tabbed `/rarebit settings` editor.

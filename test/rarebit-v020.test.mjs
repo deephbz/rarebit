@@ -12,8 +12,10 @@ import {
   normalizeRarebitSummaryPrompt,
   rarebitJobIdentity,
   selectRarebits,
+  sha256,
 } from "../src/rarebit-core.mjs";
 import { processRarebitSummary } from "../src/rarebit-service.mjs";
+import { extractRarebitSynthesisReceipt } from "../src/rarebit-model.mjs";
 import { resolveRarebitSettings } from "../src/rarebit-settings.mjs";
 import {
   RAREBIT_SETTINGS_FIELDS,
@@ -57,19 +59,22 @@ function recapContext(summary, setWidget) {
     entry("recap-a", { role: "assistant", stopReason: "stop", content: "The deployment is complete." }),
   ];
   const selection = selectRarebits(branch);
+  const observedAt = "2026-09-27T00:00:00.000Z";
+  const model = { provider: "fixture", id: "summary" };
   const receipt = {
-    type: "rarebit_summary",
-    status: "ok",
-    jobId: "recap-v020-job",
+    schemaVersion: 4, type: "rarebit_summary", status: "ok", jobId: sha256("recap-v020-job"),
     sessionId: "recap-v020-session",
-    branch: { leafId: "recap-a", pathHash: "recap-v020-path" },
-    selection: {
-      manifestHash: selection.manifestHash,
-      selectorVersion: selection.manifest.selectorVersion,
-    },
-    sessionStatus: "finished",
-    observedAt: "2026-09-27T00:00:00.000Z",
-    summary,
+    branch: { leafId: "recap-a", entryCount: branch.length, pathHash: sha256(branch.map((item) => item.id)) },
+    selection: { manifestHash: selection.manifestHash, selectorVersion: selection.manifest.selectorVersion,
+      occurrenceCount: selection.occurrences.length, uniquePayloadCount: selection.payloads.length,
+      latestUserSourceEntryId: "recap-u" },
+    sessionStatus: "finished", statusReason: "all_requests_accomplished", observedAt, summary,
+    lifecycleBoundary: "agent_settled", implementationVersion: "hc-rarebit-summary-v7", synthesisMode: "forced",
+    inputCoveragePolicy: { strategy: "newest_suffix_with_explicit_omission", maxPromptChars: 10_000 },
+    promptVersion: "rarebit-summary-v8", model, modelProvenance: { source: "test", status: "resolved" },
+    inputCoverage: { totalMessageCount: selection.occurrences.length, includedMessageCount: selection.occurrences.length,
+      omittedMessageCount: 0, omittedTextChars: 0, promptChars: 500, complete: true },
+    synthesis: extractRarebitSynthesisReceipt({}, { requestedModel: model, startedAt: observedAt, completedAt: observedAt, durationMs: 0 }),
   };
   return {
     ctx: {

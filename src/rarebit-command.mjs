@@ -94,6 +94,11 @@ export const RAREBIT_COMMAND_GRAMMAR = Object.freeze({
       forms: [[]],
     },
     {
+      name: "got-it",
+      description: "Mark the latest displayed Recap as read",
+      forms: [[]],
+    },
+    {
       name: "summarize",
       description: "Force a Rarebit Summary materialization",
       forms: [[]],

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 
-import { selectRarebits } from "../src/rarebit-core.mjs";
+import { selectRarebits, sha256 } from "../src/rarebit-core.mjs";
 import registerPiRarebit from "../src/extension.mjs";
 import { readConfiguredRarebitSettings } from "../src/extension.mjs";
 import { processRarebitSummary } from "../src/rarebit-service.mjs";
@@ -52,20 +52,41 @@ function contextFor({ sessionId = "session-1", sessionFile = "/tmp/session-1.jso
 function receiptFor(ctx, jobId = "job-1") {
   const branch = ctx.sessionManager.getBranch();
   const selection = selectRarebits(branch);
+  const observedAt = "2026-09-27T00:00:00.000Z";
+  const latestUser = selection.occurrences.filter((item) => item.role === "user").at(-1);
   return {
+    schemaVersion: 4,
     type: "rarebit_summary",
     status: "ok",
-    jobId,
+    jobId: /^[a-f0-9]{64}$/.test(jobId) ? jobId : "1".repeat(64),
     sessionId: ctx.sessionManager.getHeader().id,
-    branch: {
-      leafId: branch.at(-1)?.id ?? null,
-    },
+    implementationVersion: "hc-rarebit-summary-v7",
+    synthesisMode: "forced",
+    lifecycleBoundary: "agent_settled",
+    inputCoveragePolicy: { strategy: "newest_suffix_with_explicit_omission", maxPromptChars: 10_000 },
+    promptVersion: "rarebit-summary-v8",
+    model: { provider: "test", id: "model" },
+    modelProvenance: { source: "test", status: "resolved" },
+    observedAt,
+    branch: { leafId: branch.at(-1)?.id ?? null, entryCount: branch.length, pathHash: sha256(branch.map((item) => item.id)) },
     selection: {
       manifestHash: selection.manifestHash,
       selectorVersion: selection.manifest.selectorVersion,
+      occurrenceCount: selection.occurrences.length,
+      uniquePayloadCount: selection.payloads.length,
+      latestUserSourceEntryId: latestUser?.sourceEntryId ?? null,
     },
     sessionStatus: "finished",
+    statusReason: "all_requests_accomplished",
+    inputCoverage: { totalMessageCount: selection.occurrences.length, includedMessageCount: selection.occurrences.length, omittedMessageCount: 0, omittedTextChars: 0, promptChars: 500, complete: true },
     summary: "RECAP_SENTINEL: display-only current Summary",
+    synthesis: {
+      schemaVersion: 1, kind: "rarebit_model_synthesis", outcome: "complete",
+      requestedModel: { provider: "test", id: "model" },
+      timing: { startedAt: observedAt, completedAt: observedAt, durationMs: 0, provenance: "local_monotonic_clock" },
+      provider: Object.fromEntries(["responseProvider", "responseProviderSource", "responseModel", "responseModelSource", "responseId", "responseIdSource", "requestId", "requestIdSource"].map((key) => [key, null])),
+      usage: { availability: "unavailable", ...Object.fromEntries(["inputTokens", "outputTokens", "totalTokens", "cacheReadTokens", "cacheWriteTokens", "reasoningTokens", "estimatedCostUsd"].map((key) => [key, null])), provenance: Object.fromEntries(["inputTokens", "outputTokens", "totalTokens", "cacheReadTokens", "cacheWriteTokens", "reasoningTokens", "estimatedCostUsd"].map((key) => [key, null])) },
+    },
   };
 }
 
@@ -80,6 +101,47 @@ function currentFor(receipt) {
     },
   };
 }
+
+test("request-prefix Recap stores only the receipt evidence cut and its hash", async () => {
+  const branch = branchFor("later-assistant");
+  branch[1].message.stopReason = "toolUse";
+  const ctx = contextFor({ branch, setWidget() {} });
+  const prefix = selectRarebits(branch.slice(0, 1));
+  const receipt = {
+    ...receiptFor(ctx), lifecycleBoundary: "owner_request", sessionStatus: "user_requested",
+    statusReason: "owner_request_recorded",
+    selection: {
+      manifestHash: prefix.manifestHash,
+      selectorVersion: prefix.manifest.selectorVersion,
+      occurrenceCount: prefix.occurrences.length,
+      uniquePayloadCount: prefix.payloads.length,
+      latestUserSourceEntryId: "owner-1",
+    },
+  };
+  const saved = [];
+  const controller = createRarebitRecapController({
+    delayMs: 0,
+    appendEntry: (type, data) => {
+      const entry = { type: "custom", customType: type, id: `entry-${saved.length}`, data };
+      saved.push(entry);
+      branch.push(entry);
+    },
+    readCurrent: async () => ({ receipt, artifactState: {
+      syncState: "request_current", applicability: "request_generation",
+      receiptRef: { jobId: receipt.jobId }, projection: { status: receipt.sessionStatus },
+    } }),
+  });
+  const result = await controller.showExisting(ctx);
+  assert.equal(result.shown, true);
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].data.coveredEntryId, "owner-1");
+  assert.equal(saved[0].data.selectionHash, prefix.manifestHash);
+  assert.equal((await controller.showExisting(ctx)).shown, true);
+  assert.equal(saved.length, 1, "redisplay reuses the active-branch Recap identity");
+  const rendered = controller.renderEntry(saved[0], {}, { fg: (_tone, text) => text }).render(15);
+  assert.ok(rendered.some((line) => line.includes("Recap·") && line.endsWith("[got it]")), "ANSI-aware truncation reserves the inline action width");
+  assert.equal(rendered.some((line) => line.trim() === "[got it]"), false);
+});
 
 function fakeClock() {
   let now = 0;
@@ -115,6 +177,45 @@ function fakeClock() {
   };
 }
 
+test("a request-prefix Recap rejects a live assistant stop while settlement is pending", async () => {
+  const branch = branchFor();
+  const ctx = contextFor({ branch, setWidget() {} });
+  const prefix = selectRarebits(branch.slice(0, 1));
+  const receipt = { ...receiptFor(ctx), lifecycleBoundary: "owner_request", sessionStatus: "user_requested",
+    statusReason: "owner_request_recorded", selection: {
+    manifestHash: prefix.manifestHash, selectorVersion: prefix.manifest.selectorVersion,
+    occurrenceCount: 1, uniquePayloadCount: prefix.payloads.length,
+    latestUserSourceEntryId: "owner-1",
+  } };
+  const controller = createRarebitRecapController({ readCurrent: async () => ({ receipt, artifactState: {
+    syncState: "request_current", applicability: "request_generation",
+    receiptRef: { jobId: receipt.jobId }, projection: { status: receipt.sessionStatus },
+  } }) });
+  const result = await controller.showExisting(ctx);
+  assert.equal(result.shown, false);
+  assert.equal(result.reason, "settlement_pending");
+});
+
+test("Recap reprojects the live branch after asynchronous renderer imports", async () => {
+  const branch = branchFor();
+  const ctx = contextFor({ branch, setWidget() {} });
+  const receipt = receiptFor(ctx);
+  let reads = 0;
+  const saved = [];
+  const controller = createRarebitRecapController({
+    appendEntry: (type, data) => saved.push({ type, data }),
+    readCurrent: async () => {
+      reads += 1;
+      if (reads === 2) branch.push({ id: "new-user", type: "message", message: { role: "user", content: "new request" } });
+      return currentFor(receipt);
+    },
+  });
+  const result = await controller.showExisting(ctx);
+  assert.equal(reads, 2);
+  assert.equal(result.shown, false);
+  assert.equal(saved.length, 0);
+});
+
 test("default recap delay is one minute and a current receipt renders only in the TUI widget", async () => {
   assert.equal(DEFAULT_RAREBIT_RECAP_DELAY_MS, 60_000);
   const clock = fakeClock();
@@ -147,7 +248,7 @@ test("default recap delay is one minute and a current receipt renders only in th
   await clock.advance(1);
   await Promise.resolve();
   await Promise.resolve();
-  assert.equal(reads, 1);
+  assert.equal(reads, 2, "the live projection is rechecked after renderer imports");
   assert.equal(widgets.length, 1);
   assert.equal(widgets[0][0], RAREBIT_RECAP_WIDGET_KEY);
   assert.match(widgetText(widgets[0][1]), /RECAP_SENTINEL/);
@@ -352,7 +453,7 @@ test("showExisting accepts current metadata-only branch drift and rejects change
       { sessionRoot, rarebitRoot },
     );
     assert.equal(rejected.shown, false);
-    assert.equal(rejected.reason, "no_current_summary");
+    assert.equal(rejected.reason, "materialization_pending");
     assert.equal(widgets.at(-1)[1], undefined);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -389,7 +490,11 @@ test("extension lifecycle materializes a real sidecar and arms the widget withou
   const handlers = new Map();
   const commands = new Map();
   const widgets = [];
+  const notices = [];
   let providerCalls = 0;
+  let releaseDelayedProvider;
+  let markProviderStarted;
+  const delayedProviderStarted = new Promise((resolve) => { markProviderStarted = resolve; });
   const pi = {
     on: (event, handler) => handlers.set(event, handler),
     registerCommand: (name, command) => commands.set(name, command),
@@ -414,6 +519,12 @@ test("extension lifecycle materializes a real sidecar and arms the widget withou
     modelClient: {
       complete: async () => {
         providerCalls += 1;
+        if (providerCalls === 3) {
+          markProviderStarted();
+          return new Promise((resolve) => { releaseDelayedProvider = () => resolve({
+            text: JSON.stringify({ summary: "Delayed synthetic assessment", sessionStatus: "finished", statusReason: "all_requests_accomplished" }),
+          }); });
+        }
         return {
           text: JSON.stringify({
             summary: "RECAP_SENTINEL: generated only for the sidecar",
@@ -438,7 +549,7 @@ test("extension lifecycle materializes a real sidecar and arms the widget withou
     isProjectTrusted: () => true,
     ui: {
       setWidget: (...args) => widgets.push(args),
-      notify() {},
+      notify: (text, level) => notices.push({ text, level }),
     },
     sessionManager: {
       getHeader: () => ({ id: "session-1" }),
@@ -469,6 +580,44 @@ test("extension lifecycle materializes a real sidecar and arms the widget withou
     assert.doesNotMatch(native, /RECAP_SENTINEL/);
     await commands.get("rarebit").handler("recap", ctx);
     assert.equal(providerCalls, 1, "displaying an existing recap must not synthesize");
+    await commands.get("rarebit").handler("summarize", ctx);
+    const manualDeadline = Date.now() + 2_000;
+    while (!notices.some((item) => /updated and current/.test(item.text))) {
+      if (Date.now() > manualDeadline) throw new Error("manual Summary result was not reported");
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(providerCalls, 2);
+    await commands.get("rarebit").handler("summarize", ctx);
+    const duplicateDeadline = Date.now() + 2_000;
+    while (!notices.some((item) => /already current/.test(item.text))) {
+      if (Date.now() > duplicateDeadline) throw new Error("duplicate Summary result was not reported");
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(providerCalls, 2);
+
+    branch.push({ type: "message", id: "owner-2", parentId: branch.at(-1).id,
+      timestamp: "2026-09-27T00:00:03.000Z", message: { role: "user", content: "Synthetic request for delayed currentness check" } });
+    await writeFile(sessionFile, `${[{ type: "session", version: 3, id: "session-1", cwd: root }, ...branch].map((entry) => JSON.stringify(entry)).join("\n")}\n`, { mode: 0o600 });
+    await commands.get("rarebit").handler("summarize", ctx);
+    await delayedProviderStarted;
+    const nextContext = {
+      ...ctx,
+      sessionId: "session-2",
+      sessionManager: {
+        getHeader: () => ({ id: "session-2" }),
+        getSessionFile: () => join(sessionRoot, "session-2.jsonl"),
+        getBranch: () => branchFor("session-2-assistant"),
+      },
+    };
+    handlers.get("session_start")({}, nextContext);
+    releaseDelayedProvider();
+    const staleDeadline = Date.now() + 2_000;
+    while (!notices.some((item) => /generated but is not current/.test(item.text))) {
+      if (Date.now() > staleDeadline) throw new Error("session-switched Summary result was not reported as non-current");
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(notices.at(-1).level, "warning");
+    assert.equal(providerCalls, 3);
   } finally {
     handlers.get("session_shutdown")({}, ctx);
     await rm(root, { recursive: true, force: true });
