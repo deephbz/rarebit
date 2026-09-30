@@ -145,7 +145,15 @@ function recapComponent(content, theme) {
   widget.addChild(themedHeading);
   widget.addChild(themedSummary);
   widget.addChild(new loadedComponents.DynamicBorder(border));
-  return widget;
+  return {
+    render(width) {
+      const lines = widget.render(width);
+      return width < 3
+        ? lines.map((line) => loadedComponents.truncateToWidth(line, Math.max(0, width), ""))
+        : lines;
+    },
+    invalidate() { widget.invalidate(); },
+  };
 }
 
 function currentContextOptions(ctx, options) {

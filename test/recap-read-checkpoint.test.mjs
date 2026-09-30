@@ -62,7 +62,7 @@ test("scrollable Recap persists read coverage across resume without acknowledgin
       inputCoveragePolicy: { strategy: "newest_suffix_with_explicit_omission", maxPromptChars: 10_000 },
       promptVersion: "rarebit-summary-v8", model: { provider: "fixture", id: "summary" },
       modelProvenance: { source: "test", status: "resolved" },
-      summary: "Renderer repaired; approval needed.", sessionStatus: "needs_attention", statusReason: "approval",
+      summary: "🧪界 Renderer repaired; approval needed.", sessionStatus: "needs_attention", statusReason: "approval",
       inputCoverage: { totalMessageCount: selection.occurrences.length, includedMessageCount: selection.occurrences.length,
         omittedMessageCount: 0, omittedTextChars: 0, promptChars: 100, complete: true },
       synthesis: extractRarebitSynthesisReceipt({}, { requestedModel: { provider: "fixture", id: "summary" },
@@ -79,10 +79,11 @@ test("scrollable Recap persists read coverage across resume without acknowledgin
     assert.ok(!widgets.some(([, content]) => content), "no pinned recap widget");
     const recap = manager.getBranch().at(-1);
     const component = controller.renderEntry(recap, {}, { fg: (_color, text) => text });
-    assert.match(component.render(80).join("\n"), /Renderer repaired; approval needed/);
     const wideRender = component.render(80);
+    assert.match(wideRender.join("\n"), /🧪界 Renderer repaired; approval needed/);
     assert.match(wideRender.join("\n"), /got it/);
-    for (const width of [1, 4, 8])
+    assert.equal(receipt.summary, "🧪界 Renderer repaired; approval needed.", "rendering does not trim stored Summary prose");
+    for (const width of [0, 1, 2, 4, 8])
       assert.ok(component.render(width).every((line) => visibleWidth(line) <= width), `Recap rows stay within ${width} columns`);
     manager.appendMessage({ role: "user", content: "Synthetic later update: also fix resize", timestamp: 3 });
     controller.updateContext(ctx);
