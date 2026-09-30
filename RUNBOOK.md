@@ -1,10 +1,12 @@
 # Rarebit runbook
 
-Rarebit release automation lives in
-[`.github/workflows/publish.yml`](.github/workflows/publish.yml). It validates
-an immutable version tag, runs the package gates, verifies one packed artifact,
-and publishes that artifact with npm provenance. See [CHANGELOG.md](CHANGELOG.md)
-for product changes.
+To release, merge the version bump and its [CHANGELOG.md](CHANGELOG.md) entry
+to `main`, run `git-privacy-scan --ref HEAD history`, then push tag
+`v<version>`. The tag push runs
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml). It runs the
+package gates, publishes one verified packed artifact with npm provenance, and
+creates the GitHub Release. A prerelease version goes to npm `next`; any other
+version goes to `latest`. Publication adds no commit.
 
 Set `rarebit.model` in global Pi settings or in a trusted Project's
 `.pi/settings.json`. It must be `provider/model` or an object with `provider`
