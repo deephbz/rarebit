@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- Add `/rarebit view [context|all|peek|off]` and a View action in the palette.
+  Read active-branch Rarebits across compactions, or keep the editor live in
+  peek.
+- Add scroll and smartcase search controls, toggle/cycle shortcuts with Super
+  aliases, and active-view status. First toggle opens all; off clears status.
+- Add the experimental context view with capability checks and an all-view
+  fallback. It relies on unsupported Pi internals and can break after updates.
+- Reset views on Session replacement, reload, and shutdown. Verify views on
+  Pi 0.84.2 and 1.0.0; component wheel input requires a supporting fullscreen
+  host.
+- Stop retained Recap entries from reading a closed Session after shutdown or
+  `/resume`.
+
 ## 0.2.1 — 2026-09-29
 
 - Move Recap into the scrollable transcript using native custom-entry renderers,

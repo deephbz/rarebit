@@ -52,7 +52,7 @@ an existing Summary in the Pi TUI.
 ```text
 long Pi Session
   └─ Distill: selected active-branch prose
-       ├─ Catch up: read the conversation
+       ├─ Catch up: read the conversation through CLI extract or Pi view
        ├─ Recall: let an agent use the selection for one request
        ├─ Fork: start a new native Pi Session from a bounded suffix
        └─ Summary / Title: optional model-derived projections
@@ -71,6 +71,46 @@ It excludes tool-call inputs, tool results, hidden reasoning, and transport
 records. Selection is deterministic. It is not model summarization. Each
 selected occurrence keeps its source entry, branch position, role, outcome,
 timestamp when available, and lineage.
+
+#### Read in the Pi TUI
+
+Use `/rarebit view` beside CLI `extract` to read the current Session without a
+model call. The command opens a picker. Choose a view directly with
+`/rarebit view [context|all|peek|off]`:
+
+- **all** reads every Rarebit on the active branch across compactions. Each
+  compaction has a marker. This is the first-toggle default.
+- **peek** reads that same branch while you type in the editor. It stays open
+  on submit. Replies appear when finished. It reserves a fixed seven-row dock;
+  a tall multiline editor can overlap the view.
+- **context** is experimental. The context view filters Pi's own transcript.
+  It depends on how Pi draws the transcript, which Pi does not guarantee for
+  extensions, so a Pi update can disable it. Rarebit then reports that the
+  context view is unavailable on this Pi version; the all and peek views keep
+  working. Context shows only Rarebits after the last compaction; use all to
+  read across compactions. It keeps Pi's compaction summary and Rarebit Recaps
+  visible.
+- **off** restores the normal transcript and removes the view status line.
+
+In `all`, use j/k or ↑/↓ for lines, u/d or Ctrl+U/Ctrl+D for half pages,
+b/Space for pages, and g/G for the ends. Search with `/` or `?`, then repeat
+with n/N. Search ignores case unless the query has an uppercase letter. Esc
+clears a search before it closes the view; q closes it. Mouse wheel scrolling
+requires fullscreen Pi with component mouse-event support. Pi 0.84.2 does not
+provide that support; Pi 1.0.0 does. In `peek`, keyboard input goes to the
+editor.
+
+Ctrl+Alt+R toggles the view. Ctrl+Alt+N cycles context → all → peek. The
+Ctrl+Super+R/N aliases support terminals that report the Super modifier through
+Kitty keyboard sequences. Later toggles reopen the last used view. Extension
+shortcuts cannot be rebound in `keybindings.json`; `/rarebit view` is the
+fallback. Close `all` before using Ctrl+Alt+G to acknowledge a Recap.
+
+The status line names the active view. The palette's **View** action opens the
+picker. Opening the Rarebit palette or settings closes the view. Session
+replacement, reload, and shutdown reset it to off. Turn it off before changing
+TUI mode. The views are verified on Pi 0.84.2 and 1.0.0. Other versions use
+capability checks and can report an unavailable view.
 
 ### 2. Recall for the agent
 

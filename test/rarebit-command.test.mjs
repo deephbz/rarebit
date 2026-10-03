@@ -14,11 +14,11 @@ const values = (prefix) =>
 test("one grammar derives command description and usage", () => {
   assert.equal(
     rarebitCommandDescription(),
-    "Rarebit menu/settings/help/status/recall/fork/config/auto-title/title/recap/got-it/summarize",
+    "Rarebit menu/settings/view/help/status/recall/fork/config/auto-title/title/recap/got-it/summarize",
   );
   assert.equal(
     rarebitCommandUsage(),
-    "Usage: /rarebit [menu|settings|help|status|recall|fork|config|auto-title|title|recap|got-it|summarize]",
+    "Usage: /rarebit [menu|settings|view|help|status|recall|fork|config|auto-title|title|recap|got-it|summarize]",
   );
   assert.equal(
     rarebitCommandUsage("config"),
@@ -44,6 +44,10 @@ test("parser accepts exactly the command grammar", () => {
     subcommand: "menu",
     arguments: [],
   });
+  for (const input of ["view", "view context", "view all", "view peek", "view off"])
+    assert.equal(parseRarebitCommand(input).ok, true);
+  for (const input of ["view keys", "view native-hide", "view all extra"])
+    assert.equal(parseRarebitCommand(input).ok, false);
   assert.equal(parseRarebitCommand("fork").ok, true);
   assert.equal(parseRarebitCommand("fork --max-token-length 64000").ok, true);
   assert.equal(parseRarebitCommand("config").ok, true);
@@ -97,6 +101,7 @@ test("autocomplete covers subcommands and discrete nested arguments", () => {
   assert.deepEqual(values(""), [
     "menu",
     "settings",
+    "view",
     "help",
     "status",
     "recall",
@@ -108,6 +113,9 @@ test("autocomplete covers subcommands and discrete nested arguments", () => {
     "got-it",
     "summarize",
   ]);
+  assert.deepEqual(values("view "), ["view context", "view all", "view peek", "view off"]);
+  assert.deepEqual(values("view p"), ["view peek"]);
+  assert.equal(values("view all "), null);
   assert.deepEqual(values("s"), ["settings", "status", "summarize"]);
   assert.deepEqual(values("config "), [
     "config max_rarebit_ratio ",

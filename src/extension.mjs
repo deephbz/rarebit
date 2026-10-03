@@ -42,6 +42,7 @@ import {
   registerRarebitLifecycle,
 } from "./lifecycle.mjs";
 import { createRarebitRecapController } from "./rarebit-recap.mjs";
+import { createRarebitViewController } from "./rarebit-view.mjs";
 import { readRarebitCurrent } from "./rarebit-store.mjs";
 import {
   openRarebitPalette,
@@ -140,6 +141,13 @@ export default function registerPiRarebit(pi, config = {}) {
     delayMs: explicit.recap?.delayMs,
     timezone: explicit.recap?.timezone,
   });
+  const viewController = createRarebitViewController();
+  for (const key of ["ctrl+alt+r", "ctrl+super+r"])
+    pi.registerShortcut?.(key, { description: "Toggle Rarebit view", handler: (ctx) => viewController.toggle(ctx) });
+  for (const key of ["ctrl+alt+n", "ctrl+super+n"])
+    pi.registerShortcut?.(key, { description: "Next Rarebit view", handler: (ctx) => viewController.cycle(ctx) });
+  pi.on("session_compact", () => viewController.refresh());
+  pi.on("message_end", () => viewController.refresh());
   pi.registerEntryRenderer?.("rarebit-recap", recapController.renderEntry);
   const acknowledgeRecap = (ctx) => {
     const result = recapController.acknowledge(ctx);
@@ -455,6 +463,7 @@ export default function registerPiRarebit(pi, config = {}) {
 
   registerRarebitLifecycle(pi, schedule, {
     onSessionStart: (ctx, generation) => {
+      viewController.dispose();
       recapController.invalidate(ctx, generation);
       activeSession = { ...identityFrom(ctx), generation };
       activityReporter.start(projectActivity(ctx));
@@ -469,6 +478,7 @@ export default function registerPiRarebit(pi, config = {}) {
       recapController.invalidate(ctx, generation);
     },
     onSessionTree: (ctx, _event, generation) => {
+      viewController.refresh();
       recapController.invalidate(ctx, generation);
       activityReporter.update(projectActivity(ctx));
     },
@@ -476,11 +486,13 @@ export default function registerPiRarebit(pi, config = {}) {
       activityReporter.update(projectActivity(ctx));
     },
     onAgentSettled: (ctx) => {
+      viewController.refresh();
       recapController.updateContext(ctx);
       activityReporter.update(projectActivity(ctx));
     },
-    onSessionShutdown: (ctx, generation) => {
-      recapController.invalidate(ctx, generation);
+    onSessionShutdown: () => {
+      viewController.dispose();
+      recapController.dispose();
       activeSession = undefined;
       activityReporter.stop();
     },
@@ -561,6 +573,7 @@ ${fence(requestText)}`;
       let commandInput = String(args ?? "");
       const trimmedCommandInput = commandInput.trim();
       if (!trimmedCommandInput || trimmedCommandInput === "menu") {
+        viewController.dispose();
         const currentUiState = () => ({
           ...identityFrom(ctx),
           branchLeafId: ctx?.sessionManager?.getBranch?.()?.at(-1)?.id ?? null,
@@ -611,7 +624,12 @@ ${fence(requestText)}`;
         );
         return;
       }
+      if (subcommand === "view") {
+        await viewController.command(ctx, rest[0]);
+        return;
+      }
       if (subcommand === "settings") {
+        viewController.dispose();
         const currentUiState = () => ({
           ...identityFrom(ctx),
           branchLeafId: ctx?.sessionManager?.getBranch?.()?.at(-1)?.id ?? null,
@@ -776,7 +794,7 @@ ${fence(requestText)}`;
           : "settings_or_default";
         notify(
           ctx,
-          `Rarebit ${subcommand}: auto-title=${autoTitleOverride ?? effective.autoTitle ?? true}; recap=${effective.recap?.enabled !== false ? "on" : "off"} after ${effective.recap?.delayMs ?? 60000}ms (${effective.recap?.timezone ?? "host"}); diagnostics=triggered:${effective.diagnostics?.summaryTriggered === true ? "on" : "off"},updated:${effective.diagnostics?.summaryUpdated === true ? "on" : "off"}; max_input_tokens=${effective.maxInputTokens ?? 64000}; max_rarebit_ratio=${policy.maxRarebitRatio} (${ratioSource}); min_total_length=${policy.minTotalLength} estimated tokens via ceil(chars/4) (${lengthSource}); measurement=${policy.measurementVersion}; model=${modelLabel(effective.model)} from ${effective.modelProvenance?.settingsKey ?? "explicit config"}${policyStatus}`,
+          `Rarebit ${subcommand}: view=${viewController.activeMode}; auto-title=${autoTitleOverride ?? effective.autoTitle ?? true}; recap=${effective.recap?.enabled !== false ? "on" : "off"} after ${effective.recap?.delayMs ?? 60000}ms (${effective.recap?.timezone ?? "host"}); diagnostics=triggered:${effective.diagnostics?.summaryTriggered === true ? "on" : "off"},updated:${effective.diagnostics?.summaryUpdated === true ? "on" : "off"}; max_input_tokens=${effective.maxInputTokens ?? 64000}; max_rarebit_ratio=${policy.maxRarebitRatio} (${ratioSource}); min_total_length=${policy.minTotalLength} estimated tokens via ceil(chars/4) (${lengthSource}); measurement=${policy.measurementVersion}; model=${modelLabel(effective.model)} from ${effective.modelProvenance?.settingsKey ?? "explicit config"}${policyStatus}`,
           "info",
         );
         return;

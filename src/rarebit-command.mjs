@@ -30,6 +30,11 @@ export const RAREBIT_COMMAND_GRAMMAR = Object.freeze({
       forms: [[], [literal("global", "Edit global Pi settings")], [literal("project", "Edit trusted project settings")]],
     },
     {
+      name: "view",
+      description: "Read Rarebits in the TUI",
+      forms: [[], [literal("context", "Current context only (experimental)")], [literal("all", "All Rarebits across compactions")], [literal("peek", "All Rarebits with the editor live")], [literal("off", "Normal transcript")]],
+    },
+    {
       name: "help",
       description: "Show Rarebit command help",
       forms: [[]],

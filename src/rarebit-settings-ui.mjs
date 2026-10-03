@@ -200,6 +200,7 @@ export const RAREBIT_SETTINGS_FIELDS = Object.freeze([
 ]);
 
 const paletteItems = [
+  { id: "view", tab: "Actions", label: "View", description: "Read Rarebits in the TUI." },
   { id: "settings", tab: "Actions", label: "Settings", description: "Open the interactive Rarebit settings editor." },
   { id: "status", tab: "Actions", label: "Status", description: "Show effective Rarebit configuration." },
   { id: "help", tab: "Actions", label: "Command help", description: "Show direct /rarebit commands." },
@@ -466,6 +467,7 @@ export async function openRarebitSettings(ctx, {
 
 export function rarebitPaletteCommand(selection) {
   switch (selection?.id) {
+    case "view": return "view";
     case "settings": case "summary_settings": case "recap_settings": case "session_settings": return "settings";
     case "summary_status": return "status";
     case "recap": return "recap";

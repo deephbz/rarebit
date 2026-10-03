@@ -50,7 +50,8 @@ function receiptCoverage(receipt, ctx) {
   return { state: current, coverage: null };
 }
 
-function observedAtLabel(observedAt, timezone) {
+export function observedAtLabel(observedAt, timezone = DEFAULT_RAREBIT_RECAP_TIMEZONE) {
+  if (observedAt === null || observedAt === undefined) return "unknown";
   const date = new Date(observedAt);
   if (Number.isNaN(date.valueOf())) return "unknown";
   const usesHostTimezone = timezone === DEFAULT_RAREBIT_RECAP_TIMEZONE;
