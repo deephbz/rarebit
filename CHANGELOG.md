@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-10-04
 
 - Add `/rarebit view [context|all|peek|off]` and a View action in the palette.
   Read active-branch Rarebits across compactions, or keep the editor live in
