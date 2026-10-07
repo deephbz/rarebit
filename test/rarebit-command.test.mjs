@@ -14,11 +14,11 @@ const values = (prefix) =>
 test("one grammar derives command description and usage", () => {
   assert.equal(
     rarebitCommandDescription(),
-    "Rarebit menu/settings/view/help/status/recall/fork/config/auto-title/title/recap/got-it/summarize",
+    "Rarebit menu/settings/view/help/status/recall/btw/fork/config/auto-title/title/recap/got-it/summarize",
   );
   assert.equal(
     rarebitCommandUsage(),
-    "Usage: /rarebit [menu|settings|view|help|status|recall|fork|config|auto-title|title|recap|got-it|summarize]",
+    "Usage: /rarebit [menu|settings|view|help|status|recall|btw|fork|config|auto-title|title|recap|got-it|summarize]",
   );
   assert.equal(
     rarebitCommandUsage("config"),
@@ -105,6 +105,7 @@ test("autocomplete covers subcommands and discrete nested arguments", () => {
     "help",
     "status",
     "recall",
+    "btw",
     "fork",
     "config",
     "auto-title",

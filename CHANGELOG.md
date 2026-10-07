@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0 — 2026-10-07
+
+- Add `/rarebit btw [--rarebits] [--readonly] [question]`. It opens a
+  temporary side Pi in a Herdr split on a private snapshot of the active
+  branch, so you can ask about history while the main agent keeps working.
+  `--rarebits` snapshots only Rarebit messages. By default the side Pi
+  inherits the parent's active tools; `--readonly` limits it to read-only
+  built-in tools without extensions.
+- Add the optional `rarebit.btw.model` setting and a BTW model field in
+  Rarebit settings. Unset, BTW uses the parent model and thinking level.
+- Autocomplete `/rarebit btw` flags. Add BTW actions to the command palette.
+
 ## 0.4.0 — 2026-10-07
 
 - Replace Recall's hour-bucketed `rarebit_conversation/v1` with a flat

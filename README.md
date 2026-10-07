@@ -173,6 +173,30 @@ npm exec -- piq entries --session /absolute/path/to/session.jsonl
 PiQ is read-only JSONL output for `jq`. It does not classify Rarebits, mutate a
 Session, invoke a model, or migrate legacy entries.
 
+#### BTW: side questions while the agent works
+
+`/rarebit btw` opens a temporary Pi in a Herdr split beside the current pane.
+Ask it about the history while the main agent keeps working. The main Session
+is unchanged.
+
+```text
+/rarebit btw What did we decide about the release version?
+/rarebit btw --rarebits --readonly Why did we drop the old schema?
+```
+
+- By default, BTW copies the active branch. `--rarebits` copies only the
+  Rarebit messages, which is cheaper and reaches past compaction.
+- By default, the side Pi loads extensions and enables the parent's active
+  tools. `--readonly` enables only `read`, `grep`, `find`, and `ls`, and loads
+  no extensions, skills, context files, or MCP servers.
+- The side Pi uses `rarebit.btw.model` when set, for example
+  `"btw": { "model": "provider/model:low" }`. Otherwise it uses the parent
+  model and thinking level.
+- A new BTW replaces the earlier BTW pane in the tab. Closing the pane deletes
+  the private snapshot in the OS temp directory.
+
+BTW requires Pi inside Herdr.
+
 ### 4. Summary, Title, and Recap
 
 Summary and Title are optional derivations over the selected evidence. Recap is

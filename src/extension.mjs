@@ -32,6 +32,7 @@ import {
   sessionFilenameFor,
   writeRarebitForkFile,
 } from "./rarebit-fork.mjs";
+import { openRarebitBtwPane, prepareRarebitBtw, watchRarebitBtwPane } from "./rarebit-btw.mjs";
 import {
   RAREBIT_CONVERSATION_SCHEMA_VERSION,
   RAREBIT_RECALL_SCHEMA_VERSION,
@@ -118,6 +119,10 @@ export async function readConfiguredRarebitSettings({
     summaryPrompt: resolved.summaryPrompt,
     diagnostics: resolved.diagnostics,
     recap: resolved.recap,
+    ...(resolved.btwModel ? { btwModel: resolved.btwModel } : {}),
+    ...(resolved.btwModelConfigurationError
+      ? { btwModelConfigurationError: resolved.btwModelConfigurationError }
+      : {}),
     reserveTokens: resolveReserveTokens(global.value, project.value, model),
   };
 }
@@ -752,6 +757,30 @@ ${fence(requestText)}`;
             ? ` Destination retained at ${destination}; resume it if the replacement is active.`
             : "";
           notify(ctx, `Rarebit fork failed: ${error?.message ?? error}.${retained}`, "error");
+        }
+        return;
+      }
+      if (subcommand === "btw") {
+        const flags = command.flags ?? [];
+        let btw;
+        try {
+          const effective = await loadEffective(ctx);
+          if (effective.btwModelConfigurationError) throw new Error(effective.btwModelConfigurationError);
+          const readonly = flags.includes("--readonly");
+          btw = await prepareRarebitBtw(ctx, {
+            mode: flags.includes("--rarebits") ? "rarebits" : "full",
+            question: rest[0] ?? "",
+            readonly,
+            activeTools: readonly ? undefined : pi.getActiveTools?.(),
+            model: effective.btwModel,
+            thinking: pi.getThinkingLevel?.(),
+          });
+          const opened = await openRarebitBtwPane({ launcherPath: btw.launcherPath, cwd: ctx.cwd ?? process.cwd() });
+          watchRarebitBtwPane({ paneId: opened.paneId, directory: btw.directory });
+          notify(ctx, `Rarebit BTW opened beside this pane (${btw.mode}${btw.readonly ? ", readonly" : ""}; ${btw.model ?? "default model"}; ${btw.summary})`, "info");
+        } catch (error) {
+          await btw?.discard();
+          notify(ctx, `Rarebit BTW failed: ${error?.message ?? error}`, "error");
         }
         return;
       }

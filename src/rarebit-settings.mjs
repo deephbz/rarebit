@@ -72,8 +72,8 @@ export function mergeRarebitSettings(
   return merged;
 }
 
-export function modelFromRarebitSettings(rarebit) {
-  const candidate = rarebit?.model;
+export function modelFromRarebitSettings(rarebit, { key = "model" } = {}) {
+  const candidate = key.split(".").reduce((value, part) => value?.[part], rarebit);
   if (isRecord(candidate)) {
     const provider = nonEmptyString(candidate.provider);
     const id = nonEmptyString(candidate.id);
@@ -91,10 +91,10 @@ export function modelFromRarebitSettings(rarebit) {
       };
   }
   if (candidate === undefined)
-    return { error: "Rarebit setting rarebit.model is missing" };
+    return { error: `Rarebit setting rarebit.${key} is missing` };
   return {
     error:
-      "Rarebit setting rarebit.model must be provider/model or {provider,id}",
+      `Rarebit setting rarebit.${key} must be provider/model or {provider,id}`,
   };
 }
 
@@ -110,6 +110,10 @@ export function resolveRarebitSettings(
 ) {
   const rarebit = mergeRarebitSettings(globalSettings, projectSettings);
   const resolved = modelFromRarebitSettings(rarebit);
+  // An omitted BTW model means "use the parent Session model".
+  const btw = rarebit?.btw?.model === undefined
+    ? {}
+    : modelFromRarebitSettings(rarebit, { key: "btw.model" });
   const recap =
     isRecord(rarebit?.recap)
       ? rarebit.recap
@@ -134,6 +138,8 @@ export function resolveRarebitSettings(
   return {
     ...(resolved.model ? { model: resolved.model } : {}),
     ...(resolved.error ? { modelConfigurationError: resolved.error } : {}),
+    ...(btw.model ? { btwModel: btw.model } : {}),
+    ...(btw.error ? { btwModelConfigurationError: btw.error } : {}),
     summaryPolicy: {
       ...DEFAULT_RAREBIT_SUMMARY_POLICY,
       ...(rarebit.min_total_length === undefined

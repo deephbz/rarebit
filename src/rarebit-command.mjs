@@ -10,6 +10,8 @@ const number = (usage, validate) => ({
   validate,
 });
 
+const flag = (value, description) => ({ value, description });
+
 const rest = (usage) => ({
   kind: "rest",
   usage,
@@ -48,6 +50,15 @@ export const RAREBIT_COMMAND_GRAMMAR = Object.freeze({
       name: "recall",
       description: "Recall active-branch Rarebit messages with a prompt",
       forms: [[rest("<prompt...>")]],
+    },
+    {
+      name: "btw",
+      description: "Ask side questions in a temporary Pi beside this one (Herdr)",
+      flags: [
+        flag("--rarebits", "Fork only Rarebit messages (default: full branch)"),
+        flag("--readonly", "Read-only tools, no extensions (default: inherit tools)"),
+      ],
+      forms: [[], [rest("<question...>")]],
     },
     {
       name: "fork",
@@ -142,7 +153,8 @@ export function rarebitCommandUsage(
   );
   if (!definition) return rarebitCommandUsage(undefined, grammar);
   const note = definition.usageNote ? ` (${definition.usageNote})` : "";
-  return `Usage: /${grammar.name} ${definition.name}${renderForms(definition.forms)}${note}`;
+  const flags = (definition.flags ?? []).map(({ value }) => ` [${value}]`).join("");
+  return `Usage: /${grammar.name} ${definition.name}${flags}${renderForms(definition.forms)}${note}`;
 }
 
 const matchToken = (definition, rawValue) => {
@@ -151,6 +163,28 @@ const matchToken = (definition, rawValue) => {
   const value = Number(rawValue);
   return Number.isFinite(value) && definition.validate(value);
 };
+
+const flagValues = (definition) => new Set((definition.flags ?? []).map(({ value }) => value));
+
+// Leading flags, in any order, precede the free-form text.
+function withFlags(definition, argumentsBefore) {
+  const known = flagValues(definition);
+  let text = String(argumentsBefore.at(-1) ?? "");
+  const flags = [];
+  for (;;) {
+    const word = text.match(/^\s*(\S+)/)?.[1];
+    if (!word || !known.has(word)) break;
+    if (!flags.includes(word)) flags.push(word);
+    text = text.replace(/^\s*\S+/, "");
+  }
+  const question = text.trim() ? text.replace(/^\s/, "") : "";
+  return {
+    ok: true,
+    subcommand: definition.name,
+    flags,
+    arguments: [...argumentsBefore.slice(0, -1), ...(question ? [question] : [])],
+  };
+}
 
 export function parseRarebitCommand(input, grammar = RAREBIT_COMMAND_GRAMMAR) {
   const rawInput = String(input ?? "");
@@ -170,6 +204,9 @@ export function parseRarebitCommand(input, grammar = RAREBIT_COMMAND_GRAMMAR) {
   const freeform = definition.forms.find(
     (form) => form.at(-1)?.kind === "rest",
   );
+  if (freeform && tokens.length === 1 && definition.forms.some((form) => form.length === 0)) {
+    return { ok: true, subcommand: definition.name, ...(definition.flags ? { flags: [] } : {}), arguments: [] };
+  }
   if (freeform) {
     const prefix = freeform.slice(0, -1);
     const leading = rawInput.trimStart();
@@ -191,6 +228,7 @@ export function parseRarebitCommand(input, grammar = RAREBIT_COMMAND_GRAMMAR) {
     }
     if (prefixMatches && /^\s/.test(remaining)) {
       const prompt = remaining.slice(1);
+      if (definition.flags) return withFlags(definition, [...parsed, prompt]);
       if (matchToken(freeform.at(-1), prompt)) {
         return {
           ok: true,
@@ -288,6 +326,21 @@ export function getRarebitArgumentCompletions(
   const priorArguments = argumentTokens.slice(0, completionIndex);
   const matches = [];
   const seen = new Set();
+
+  if (definition.flags) {
+    const known = flagValues(definition);
+    if (!priorArguments.every((value) => known.has(value))) return null;
+    const flagMatches = definition.flags
+      .filter(({ value }) => !priorArguments.includes(value) && value.startsWith(partial))
+      .map(({ value, description }) =>
+        completionItem({
+          value: `${[definition.name, ...priorArguments, value].join(" ")} `,
+          label: value,
+          description,
+        }),
+      );
+    return flagMatches.length > 0 ? flagMatches : null;
+  }
 
   for (const form of definition.forms) {
     const priorMatches = priorArguments.every(

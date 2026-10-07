@@ -197,6 +197,7 @@ export const RAREBIT_SETTINGS_FIELDS = Object.freeze([
   field("recap_timezone", "Recap", "Recap timezone", ["recap", "timezone"], "timezone", `Timestamp zone. Blank uses the host timezone (${HOST_TIMEZONE}).`, { defaultValue: HOST_TIMEZONE }),
   field("auto_title", "Session", "Automatic Session title", ["auto_title"], "boolean", "Generate a Rarebit title from the first persisted owner message.", { defaultValue: true }),
   field("model", "Session", "Rarebit model", ["model"], "string", "Model in provider/model form. Blank removes the local override.", { defaultValue: "Not set" }),
+  field("btw_model", "Session", "BTW model", ["btw", "model"], "string", "Model for /rarebit btw in provider/model form; add :<thinking> to set thinking. Blank uses the parent Session model.", { defaultValue: "Parent model" }),
 ]);
 
 const paletteItems = [
@@ -207,6 +208,8 @@ const paletteItems = [
   { id: "summarize", tab: "Actions", label: "Summarize", description: "Force a Rarebit Summary materialization." },
   { id: "recall", tab: "Actions", label: "Recall", description: "Recall active-branch Rarebit messages with a prompt." },
   { id: "fork", tab: "Actions", label: "Fork", description: "Open a bounded Rarebit fork without a model turn." },
+  { id: "btw", tab: "Actions", label: "BTW", description: "Ask side questions in a temporary Pi beside this one." },
+  { id: "btw_rarebits", tab: "Actions", label: "BTW (Rarebits)", description: "BTW with Rarebit messages only." },
   { id: "summary_status", tab: "Summary", label: "Summary status", description: "Show effective Summary policy." },
   { id: "summary_settings", tab: "Summary", label: "Summary settings", description: "Edit Summary diagnostics and input policy." },
   { id: "recap", tab: "Recap", label: "Recap", description: "Show the current Recap in the TUI." },
@@ -475,6 +478,8 @@ export function rarebitPaletteCommand(selection) {
     case "recall": return "recall";
     case "title": return "title";
     case "fork": return "fork";
+    case "btw": return "btw";
+    case "btw_rarebits": return "btw --rarebits";
     case "help": return "help";
     default: return undefined;
   }
