@@ -140,27 +140,52 @@ test("recall materialization writes private detailed evidence and a chronologica
       await readFile(result.conversationPath, "utf8"),
     );
     assert.deepEqual(conversation, {
-      schemaVersion: 1,
+      schemaVersion: 2,
       type: "rarebit_conversation",
-      timeZone: "UTC",
-      hours: [
+      messageCount: 3,
+      lastRound: 1,
+      messages: [
         {
-          hour: "2026-07-24T01:00Z",
-          messages: [{ role: "user", content: "Exact owner evidence." }],
+          seq: 1,
+          round: 1,
+          role: "user",
+          kind: "request",
+          time: "2026-07-24T01:02:03Z",
+          text: "Exact owner evidence.",
         },
         {
-          hour: "2026-07-24T02:00Z",
-          messages: [
-            { role: "agent", content: "Exact continuation evidence." },
-            { role: "agent", content: "Exact stop evidence." },
-          ],
+          seq: 2,
+          round: 1,
+          role: "agent",
+          kind: "progress",
+          time: "2026-07-24T02:00:00Z",
+          text: "Exact continuation evidence.",
+        },
+        {
+          seq: 3,
+          round: 1,
+          role: "agent",
+          kind: "reply",
+          time: "2026-07-24T02:45:00Z",
+          text: "Exact stop evidence.",
         },
       ],
     });
+    assert.deepEqual(
+      detailed.selection.occurrences.map(({ seq, sourceEntryId }) => ({
+        seq,
+        sourceEntryId,
+      })),
+      [
+        { seq: 1, sourceEntryId: "owner" },
+        { seq: 2, sourceEntryId: "continue" },
+        { seq: 3, sourceEntryId: "stop" },
+      ],
+    );
     const conversationText = await readFile(result.conversationPath, "utf8");
     assert.doesNotMatch(
       conversationText,
-      /sourceEntryId|occurrenceId|manifestHash|contentHash|timestamp|session/i,
+      /sourceEntryId|occurrenceId|manifestHash|contentHash|session/i,
     );
   } finally {
     await result.discard();
@@ -168,7 +193,7 @@ test("recall materialization writes private detailed evidence and a chronologica
   }
 });
 
-test("conversation buckets sort chronologically and treat producer-tagged input as a normal user message", async () => {
+test("conversation keeps branch order, numbers rounds, and treats producer-tagged input as a normal user message", async () => {
   const root = await fixtureRoot("bucket-order");
   const sessionFile = join(root, "session.jsonl");
   await writeFile(sessionFile, "{}\n");
@@ -218,23 +243,23 @@ test("conversation buckets sort chronologically and treat producer-tagged input 
     const conversation = JSON.parse(
       await readFile(result.conversationPath, "utf8"),
     );
-    assert.deepEqual(conversation.hours, [
-      {
-        hour: "2026-07-24T01:00Z",
-        messages: [{ role: "agent", content: "Earlier agent evidence." }],
-      },
-      {
-        hour: "2026-07-24T02:00Z",
-        messages: [
-          { role: "user", content: "Unknown-origin user evidence." },
-          { role: "agent", content: "Later agent evidence." },
-        ],
-      },
-      {
-        hour: null,
-        messages: [{ role: "agent", content: "Unknown-time agent evidence." }],
-      },
-    ]);
+    assert.equal(conversation.lastRound, 1);
+    assert.deepEqual(
+      conversation.messages.map(({ seq, round, role, kind, time, text }) => [
+        seq,
+        round,
+        role,
+        kind,
+        time,
+        text,
+      ]),
+      [
+        [1, 1, "user", "request", "2026-07-24T02:10:00Z", "Unknown-origin user evidence."],
+        [2, 1, "agent", "reply", "2026-07-24T01:10:00Z", "Earlier agent evidence."],
+        [3, 1, "agent", "reply", null, "Unknown-time agent evidence."],
+        [4, 1, "agent", "reply", "2026-07-24T02:20:00Z", "Later agent evidence."],
+      ],
+    );
     assert.doesNotMatch(
       await readFile(result.conversationPath, "utf8"),
       /human|producer|rpc/,
@@ -318,28 +343,46 @@ test("recall sends one exact fenced Markdown steer message in idle and busy cont
     "\n# Heading-looking request\n- list-looking item\n```text\ninside backticks\n```\n~~~~\ninside tildes\n~~~~\nTrailing request\n";
   const expectedMessage = `# Rarebit Recall
 
-*Use these local private evidence files to recover historical context for this turn.*
+*Answer the **Current request** below. Use these local private files to recover earlier context from this Session.*
 
-## How to use this bundle
+## Files
 
-1. Treat **Current request** below as the exact current user request.
-2. Read **Conversation** first for meaning.
-3. Use **Detailed evidence** only for source, Session, branch, or lineage facts.
-4. Answer the current request using this evidence.
-
-## Local private evidence files
-
-**Conversation** — \`rarebit_conversation/v1\`
+**Conversation** — \`rarebit_conversation/v2\`. Read this first.
 
 \`\`\`text
 ${recall.conversationPath}
 \`\`\`
 
-**Detailed evidence** — \`rarebit_message_recall/v1\`
+**Detailed evidence** — \`rarebit_message_recall/v1\`. Use it only for source, Session, branch, or lineage facts. Join on \`seq\`.
 
 ~~~~text
 ${recall.detailedPath}
 ~~~~
+
+## Conversation schema
+
+\`\`\`text
+{ messageCount, lastRound, messages: [{ seq, round, role, kind, time, text }] }
+seq    1-based, oldest first
+round  increments at each user message; agent messages before the first user message have round 0
+role   "user" | "agent"
+kind   "request" (user) | "progress" (agent text before a tool call) | "reply" (agent final answer)
+time   UTC "YYYY-MM-DDTHH:MM:SSZ", or null
+\`\`\`
+
+Messages contain user and agent text only. Tool calls and tool results are excluded.
+
+## Example queries
+
+Set \`F\` to the Conversation path. Read the smallest slice that answers the request.
+
+\`\`\`sh
+jq '.messages[-20:]' "$F"                                              # last 20 messages
+jq '[.messages[] | select(.role == "user")][-3:]' "$F"                 # last 3 user messages
+jq '[.messages[] | select(.kind == "reply")][-10:]' "$F"               # last 10 agent replies
+jq '.lastRound as $r | [.messages[] | select(.round > $r - 5)]' "$F"  # last 5 rounds
+jq '(now - 8*3600 | todate) as $t | [.messages[] | select(.time >= $t)]' "$F"  # last 8 hours
+\`\`\`
 
 ## Current request
 
@@ -390,7 +433,7 @@ test("long delimiter runs ending at value boundaries use the shortest safe fence
   assert.equal(harness.sent.length, 1);
   const message = harness.sent[0].args[0];
   const conversationBlock = message.match(
-    /\*\*Conversation\*\* — `rarebit_conversation\/v1`\n\n([`~]+)text\n([^\n]*)\n\1\n\n\*\*Detailed evidence\*\*/,
+    /\*\*Conversation\*\* — `rarebit_conversation\/v2`\. Read this first\.\n\n([`~]+)text\n([^\n]*)\n\1\n\n\*\*Detailed evidence\*\*/,
   );
   assert.ok(conversationBlock);
   assert.equal(conversationBlock[2], conversationPath);

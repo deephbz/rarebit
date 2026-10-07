@@ -18,27 +18,45 @@ async function waitFor(predicate, label, timeout = 2_000) {
 function expectedRecallMarkdown(conversationPath, detailedPath, request) {
   return `# Rarebit Recall
 
-*Use these local private evidence files to recover historical context for this turn.*
+*Answer the **Current request** below. Use these local private files to recover earlier context from this Session.*
 
-## How to use this bundle
+## Files
 
-1. Treat **Current request** below as the exact current user request.
-2. Read **Conversation** first for meaning.
-3. Use **Detailed evidence** only for source, Session, branch, or lineage facts.
-4. Answer the current request using this evidence.
-
-## Local private evidence files
-
-**Conversation** — \`rarebit_conversation/v1\`
+**Conversation** — \`rarebit_conversation/v2\`. Read this first.
 
 \`\`\`text
 ${conversationPath}
 \`\`\`
 
-**Detailed evidence** — \`rarebit_message_recall/v1\`
+**Detailed evidence** — \`rarebit_message_recall/v1\`. Use it only for source, Session, branch, or lineage facts. Join on \`seq\`.
 
 \`\`\`text
 ${detailedPath}
+\`\`\`
+
+## Conversation schema
+
+\`\`\`text
+{ messageCount, lastRound, messages: [{ seq, round, role, kind, time, text }] }
+seq    1-based, oldest first
+round  increments at each user message; agent messages before the first user message have round 0
+role   "user" | "agent"
+kind   "request" (user) | "progress" (agent text before a tool call) | "reply" (agent final answer)
+time   UTC "YYYY-MM-DDTHH:MM:SSZ", or null
+\`\`\`
+
+Messages contain user and agent text only. Tool calls and tool results are excluded.
+
+## Example queries
+
+Set \`F\` to the Conversation path. Read the smallest slice that answers the request.
+
+\`\`\`sh
+jq '.messages[-20:]' "$F"                                              # last 20 messages
+jq '[.messages[] | select(.role == "user")][-3:]' "$F"                 # last 3 user messages
+jq '[.messages[] | select(.kind == "reply")][-10:]' "$F"               # last 10 agent replies
+jq '.lastRound as $r | [.messages[] | select(.round > $r - 5)]' "$F"  # last 5 rounds
+jq '(now - 8*3600 | todate) as $t | [.messages[] | select(.time >= $t)]' "$F"  # last 8 hours
 \`\`\`
 
 ## Current request
@@ -50,7 +68,7 @@ ${request}
 
 function conversationPathFrom(message) {
   const match = message.match(
-    /\*\*Conversation\*\* — `rarebit_conversation\/v1`\n\n```text\n([^\n]*rarebit-conversation\.json)\n```/,
+    /\*\*Conversation\*\* — `rarebit_conversation\/v2`\. Read this first\.\n\n```text\n([^\n]*rarebit-conversation\.json)\n```/,
   );
   assert.ok(match, "Recall Markdown must contain the fenced conversation path");
   return match[1];
@@ -58,7 +76,7 @@ function conversationPathFrom(message) {
 
 function detailedPathFrom(message) {
   const match = message.match(
-    /\*\*Detailed evidence\*\* — `rarebit_message_recall\/v1`\n\n```text\n([^\n]*rarebit-evidence\.json)\n```/,
+    /\*\*Detailed evidence\*\* — `rarebit_message_recall\/v1`\. Use it only for source, Session, branch, or lineage facts\. Join on `seq`\.\n\n```text\n([^\n]*rarebit-evidence\.json)\n```/,
   );
   assert.ok(match, "Recall Markdown must contain the fenced detailed path");
   return match[1];

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Replace Recall's hour-bucketed `rarebit_conversation/v1` with a flat
+  `rarebit_conversation/v2` message list. Each message has `seq`, `round`,
+  `role`, `kind`, second-precision UTC `time`, and `text`. Detailed evidence
+  occurrences gain the same `seq` join key.
+- Add the conversation schema and `jq` tail queries to the Recall message.
+
 ## 0.3.0 — 2026-10-04
 
 - Add `/rarebit view [context|all|peek|off]` and a View action in the palette.

@@ -6,7 +6,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import { selectRarebits } from "./rarebit-core.mjs";
 
 export const RAREBIT_RECALL_SCHEMA_VERSION = 1;
-export const RAREBIT_CONVERSATION_SCHEMA_VERSION = 1;
+export const RAREBIT_CONVERSATION_SCHEMA_VERSION = 2;
 export const RAREBIT_RECALL_DETAILED_FILENAME = "rarebit-evidence.json";
 export const RAREBIT_RECALL_CONVERSATION_FILENAME = "rarebit-conversation.json";
 
@@ -52,16 +52,20 @@ function recallDocument({ sessionId, sessionFile, branch, selection, now }) {
       occurrenceCount: selection.occurrences.length,
       uniquePayloadCount: selection.payloads.length,
       occurrences: selection.occurrences.map(
-        ({
-          occurrenceId,
+        (
+          {
+            occurrenceId,
           sourceEntryId,
           order,
           timestamp,
           role,
           outcome,
-          contentHash,
-          text,
-        }) => ({
+            contentHash,
+            text,
+          },
+          index,
+        ) => ({
+          seq: index + 1,
           occurrenceId,
           sourceEntryId,
           order,
@@ -76,37 +80,45 @@ function recallDocument({ sessionId, sessionFile, branch, selection, now }) {
   };
 }
 
-function conversationHour(timestamp) {
+// Second precision matches jq `todate`, so `.time >= (now - N | todate)` and
+// `fromdate` work without parsing fractional seconds.
+function conversationTime(timestamp) {
   if (typeof timestamp !== "string") return null;
   const value = new Date(timestamp);
   if (Number.isNaN(value.getTime())) return null;
-  return `${value.toISOString().slice(0, 13)}:00Z`;
+  return `${value.toISOString().slice(0, 19)}Z`;
 }
 
+const CONVERSATION_KIND = Object.freeze({
+  user: "request",
+  continuation: "progress",
+  stop: "reply",
+});
+
+/**
+ * One flat, branch-ordered message list. `seq` matches the detailed
+ * occurrence `seq`. A round starts at each user message, so tail slices by
+ * message, role, kind, round, or time are single jq filters.
+ */
 function conversationDocument(selection) {
-  const byHour = new Map();
-  for (const occurrence of selection.occurrences) {
-    const hour = conversationHour(occurrence.timestamp);
-    let bucket = byHour.get(hour);
-    if (!bucket) {
-      bucket = { hour, messages: [] };
-      byHour.set(hour, bucket);
-    }
-    bucket.messages.push({
-      role: occurrence.role === "user" ? "user" : "agent",
-      content: occurrence.text,
-    });
-  }
-  const hours = [...byHour.values()].sort((left, right) => {
-    if (left.hour === null) return right.hour === null ? 0 : 1;
-    if (right.hour === null) return -1;
-    return left.hour.localeCompare(right.hour);
+  let round = 0;
+  const messages = selection.occurrences.map((occurrence, index) => {
+    if (occurrence.outcome === "user") round += 1;
+    return {
+      seq: index + 1,
+      round,
+      role: occurrence.outcome === "user" ? "user" : "agent",
+      kind: CONVERSATION_KIND[occurrence.outcome],
+      time: conversationTime(occurrence.timestamp),
+      text: occurrence.text,
+    };
   });
   return {
     schemaVersion: RAREBIT_CONVERSATION_SCHEMA_VERSION,
     type: "rarebit_conversation",
-    timeZone: "UTC",
-    hours,
+    messageCount: messages.length,
+    lastRound: round,
+    messages,
   };
 }
 
