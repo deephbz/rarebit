@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 — 2026-10-07
 
 - Replace Recall's hour-bucketed `rarebit_conversation/v1` with a flat
   `rarebit_conversation/v2` message list. Each message has `seq`, `round`,
