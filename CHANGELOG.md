@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 — 2026-10-12
+
+- Document the release privacy gate as the baseline range scan in `RUNBOOK.md`
+  and `AGENTS.md`. A change outside the npm `files` list ships on `main`
+  without a version.
+
 ## 0.5.0 — 2026-10-07
 
 - Add `/rarebit btw [--rarebits] [--readonly] [question]`. It opens a
