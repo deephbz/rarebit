@@ -1,0 +1,20 @@
+{
+  "name": "rarebit",
+  "version": "0.0.1",
+  "description": "Preview: Rarebit lens, view, recap and ask for Claude Code",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "recapModel": {
+      "type": "string",
+      "title": "Rarebit recap model",
+      "description": "Model for /rarebit recap. An alias (haiku, sonnet, opus) or a full model id.",
+      "default": "haiku"
+    },
+    "askModel": {
+      "type": "string",
+      "title": "Rarebit side-ask model",
+      "description": "Model for /rarebit ask and its follow-ups. An alias (haiku, sonnet, opus) or a full model id.",
+      "default": "sonnet"
+    }
+  }
+}

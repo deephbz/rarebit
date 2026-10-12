@@ -17,3 +17,6 @@ brand/site/fonts/
 brand/site/index.html
 brand/site/brand-data.js
 brand/site/video-config.js
+
+# Claude Code writes engine types into a loaded mod.
+claude-code/.claude-plugin/types/
