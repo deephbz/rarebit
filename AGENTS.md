@@ -7,7 +7,7 @@ must not replace it or claim Task, Project, runtime, or delivery truth.
 Keep the public surface small. Test CLI behavior, package boundaries, and Pi
 installation paths. Do not add private-helper mocks, export-count tests,
 coverage targets, or tautological snapshots. Run `npm ci`, `npm test`, and
-`npm run verify:package` before a release candidate.
+`npm run verify:package` before a release.
 
 Do not record Session prose, provider credentials, Recall bundles, or private
 paths in issues, fixtures, logs, or release records. `README.md` owns user

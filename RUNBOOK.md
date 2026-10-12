@@ -1,12 +1,16 @@
 # Rarebit runbook
 
 To release, merge the version bump and its [CHANGELOG.md](CHANGELOG.md) entry
-to `main`, run `git-privacy-scan --ref HEAD history`, then push tag
-`v<version>`. The tag push runs
+to `main`, run
+`git-privacy-scan --ref HEAD --base "$(git config privacy.baseline)" range`,
+then push tag `v<version>`. Any finding blocks the release; the pre-push hook
+runs the same scan. The tag push runs
 [`.github/workflows/publish.yml`](.github/workflows/publish.yml). It runs the
 package gates, publishes one verified packed artifact with npm provenance, and
 creates the GitHub Release. A prerelease version goes to npm `next`; any other
-version goes to `latest`. Publication adds no commit.
+version goes to `latest`. Publication adds no commit. A change outside the npm
+`files` list, such as `claude-code/`, changes no package bytes: push it to
+`main` without a version.
 
 Set `rarebit.model` in global Pi settings or in a trusted Project's
 `.pi/settings.json`. It must be `provider/model` or an object with `provider`
