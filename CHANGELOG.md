@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2 — 2026-10-15
+
+- Add a development-only simulator lane (`npm run test:sim`) that runs real
+  Rarebit selection, materialization, Recall, compaction and tree navigation on
+  the shared HyperCarrier Pi simulator. It needs the HyperCarrier workspace.
+  `sim/` is not in the npm package. The lane found no Rarebit product bug.
+- Move the selection monitor tests into `test/`.
+
 ## 0.5.1 — 2026-10-12
 
 - Document the release privacy gate as the baseline range scan in `RUNBOOK.md`
