@@ -29,6 +29,9 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
+    "test:sim": "node --test sim/*.test.mjs",
+    "test:sim:campaign": "RAREBIT_SIM_RUNS=100 node --test sim/*.test.mjs",
+    "test:sim:replay": "node sim/replay.mjs",
     "test:e2e:tui": "node scripts/e2e-v020-pi.mjs",
     "test:e2e:summary-cache": "node scripts/e2e-summary-cache.mjs",
     "test:e2e:recall": "node scripts/e2e-recall-pi0842.mjs",
@@ -55,6 +58,7 @@
     "@earendil-works/pi-coding-agent": "0.84.2",
     "@earendil-works/pi-tui": "0.84.2",
     "ajv": "^6.15.0",
+    "fast-check": "^4.10.2",
     "typescript": "^5.9.3"
   },
   "pi": {

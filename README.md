@@ -400,6 +400,16 @@ Use [GitHub Issues](https://github.com/deephbz/rarebit/issues) for normal
 support. Include no Session prose, credentials, or Recall files in public
 reports.
 
+## Development verification
+
+`npm ci && npm test` runs standalone unit and selection checks. The private
+R&D simulator lane uses HC's shared `@hypercarrier/pi-sim`; it does not enter
+Rarebit's root install or published artifact. Run `npm run test:sim` in the HC
+workspace or set `HC_PI_SIM_PATH` to an installed simulator package root.
+Run `npm run test:sim:campaign` for the longer seeded campaign.
+[Simulator scope, setup, properties, replay, and results](sim/README.md) remain
+repository-only development artifacts. No real provider credentials are needed.
+
 ## Release and source history
 
 Rarebit is released from an immutable version tag by

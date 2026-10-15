@@ -1,0 +1,30 @@
+{
+  "scope": "Rarebit scenarios on shared private pi-sim; no production contract change",
+  "architectureImpact": "changed: development verification ownership only",
+  "simulator": {"version": "0.2.1", "sourceRevision": "4961514f0dc51da898b0bad9c97d8ce220f80069"},
+  "properties": ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9"],
+  "inventory": {"semanticTestNamesBefore": 8, "semanticTestNamesAfter": 8, "namesEqual": true, "pureTestsMovedToDefault": 2, "extraLoaderTests": 1, "actions": ["turn", "summary", "error", "compact", "branch", "recall"], "seeds": [12, 7, 29, 1], "fastCheckSeed": 20261015, "exhaustiveSelectionPairs": 5184, "generatedEvidenceCases": 100, "defaultHttpCases": 8, "campaignHttpCases": 100},
+  "slice": {"piVersions": ["1.1.0", "1.2.0"], "actions": ["turn", "summary", "summary", "recall"], "receiptReused": true, "recallEnvelopes": 1, "realRecallFiles": 2, "requests": 3},
+  "sim": [
+    {"piVersion": "1.1.0", "testsPassed": 7, "testsFailed": 0, "worlds": 21, "runtimeMs": 14186, "virtualMs": 1100976, "worldWallMs": 12843, "speedRatio": 85.73},
+    {"piVersion": "1.2.0", "testsPassed": 7, "testsFailed": 0, "worlds": 21, "runtimeMs": 13878, "virtualMs": 1100976, "worldWallMs": 12563, "speedRatio": 87.64}
+  ],
+  "replay": {"processes": "fresh child per scenario", "normalization": "temporary world root only", "retained": ["IDs", "timestamps", "hashes", "entropy", "raw request bodies"], "excludedMetrics": ["wallMs"]},
+  "mutants": [
+    {"id": "include-error", "property": "R1", "result": "killed", "trace": "fixtures/include-error.json", "control": "passed", "replay": "identical twice"},
+    {"id": "prefix-hash", "property": "R4", "result": "killed", "trace": "fixtures/prefix-hash.json", "control": "passed", "replay": "identical twice"}
+  ],
+  "delayedBoundary": {"operation": "lstat", "sharedAPI": "delayHostIO", "delayMs": 30, "formerInjection": "200 host checkpoints", "seed": 1, "mutant": "prefix-hash", "oracle": "exact replayProjection equality", "sabotage": {"piVersion": "1.2.0", "change": "omit lstat pendingIO tracking while retaining real delay", "expectedFailure": "R9 delayed real lstat", "observed": true}},
+  "standalone": [
+    {"node": "22.19.0", "npmCi": "passed", "defaultTestsPassed": 177, "defaultTestsFailed": 0, "missingSimulatorError": "simulator tests need the HC workspace or HC_PI_SIM_PATH"},
+    {"node": "24.21.0", "npmCi": "passed", "defaultTestsPassed": 177, "defaultTestsFailed": 0, "missingSimulatorError": "simulator tests need the HC workspace or HC_PI_SIM_PATH"}
+  ],
+  "packageVerification": {"result": "passed", "packedFiles": 81, "simExcluded": true, "rootSimulatorDependency": false, "installedArtifactImportsAndCLI": "passed without pi-sim"},
+  "campaign": {"piVersion": "1.2.0", "generatedHttpCases": 100, "fastCheckSeed": 20261015, "testsPassed": 7, "testsFailed": 0, "worlds": 113, "runtimeMs": 204423, "virtualMs": 7517247, "worldWallMs": 190008, "speedRatio": 39.56},
+  "loaderIsolation": "Missing-dependency fixture refuses inherited workspace resolution when TMPDIR is inside a checkout",
+  "loadedReplay": {"cpuWorkersPerPi": 8, "concurrentPiRuns": true, "checksPerIteration": ["two-seed exact replay", "both mutants and controls", "delayed real lstat"], "results": [{"piVersion": "1.1.0", "runs": 30, "failures": 0, "worlds": 360}, {"piVersion": "1.2.0", "runs": 30, "failures": 0, "worlds": 360}], "setupQualification": "An earlier run overlapped npm ci and failed module imports. These final runs use stable installed dependencies."},
+  "pending": [],
+  "declaredLoss": "Pi 0.84 simulator coverage removed; production and non-simulator compatibility unchanged",
+  "productionBugsFound": [],
+  "limits": ["Anthropic Messages only", "Byte-prefix eligibility, not billed provider cache hits", "No provider faults or busy-Recall campaign", "No instruction-level host races or crash durability", "One world per child", "Same-seed worlds run serially or in separate temp parents"]
+}

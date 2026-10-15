@@ -1,0 +1,9 @@
+{
+  "name": "@rarebit/sim-lane",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@hypercarrier/pi-sim": "0.2.1"
+  }
+}
