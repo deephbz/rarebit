@@ -199,7 +199,6 @@ export type RarebitVisualTone =
   | "user"
   | "continuation"
   | "boundary"
-  | "attention"
   | "diagnostic"
   | "muted";
 export type RarebitEventKind =
@@ -213,7 +212,6 @@ export type RarebitVisualPresentation = {
     | "smaller"
     | "larger"
     | "ordinary"
-    | "attention"
     | "muted"
     | "diagnostic";
 };

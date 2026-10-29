@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Retire the attention presentation of the `needs_attention` Summary status.
+  It now reads as an ordinary Summary: no `◆!` mark, no "needs you" label, and
+  no attention tone. The status and its classifier stay unchanged. The Recap
+  heading reads `Recap·summarized·…`.
+
 ## 0.5.2 — 2026-10-15
 
 - Add a development-only simulator lane (`npm run test:sim`) that runs real

@@ -193,7 +193,7 @@ test("recap renders the human label and converts the receipt timestamp to the co
   const result = await controller.showExisting(context);
   assert.equal(result.shown, true);
   const heading = widgets[0]({ requestRender() {} }, { fg: (_name, text) => text }).render(200).find((line) => line.includes("Recap·")).trim();
-  assert.match(heading, /^(?:◆!)?Recap·needsyou·01\/01 08:00\(GMT\+8\)/);
+  assert.match(heading, /^Recap·summarized·01\/01 08:00\(GMT\+8\)/);
   assert.doesNotMatch(heading, /as of|2026|Asia\/Hong_Kong/);
   assert.doesNotMatch(heading, /Rarebit Summary/);
 });

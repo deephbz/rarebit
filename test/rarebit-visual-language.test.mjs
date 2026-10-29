@@ -38,7 +38,7 @@ test("event presentation preserves the canonical occurrence grammar", () => {
   assert.equal(rarebitEventPresentation("terminal_error").mark, "×");
 });
 
-test("Summary presentation keeps ordinary outcomes neutral and attention singular", () => {
+test("Summary presentation keeps every outcome neutral, needs_attention included", () => {
   assert.deepEqual(rarebitSummaryPresentation("finished"), {
     mark: null,
     label: "appears finished",
@@ -46,16 +46,16 @@ test("Summary presentation keeps ordinary outcomes neutral and attention singula
     salience: "ordinary",
   });
   assert.deepEqual(rarebitSummaryPresentation("needs_attention"), {
-    mark: "◆!",
-    label: "needs you",
-    tone: "attention",
-    salience: "attention",
+    mark: null,
+    label: "summarized",
+    tone: "neutral",
+    salience: "ordinary",
   });
   assert.deepEqual(
     rarebitSummaryPresentation("needs_attention", { sourcePending: true }),
     {
       mark: null,
-      label: "needs you · source pending",
+      label: "summarized · source pending",
       tone: "neutral",
       salience: "ordinary",
     },

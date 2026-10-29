@@ -61,9 +61,9 @@ The scopes are deliberately different: Session-history events are repeatable, ti
     </tr>
     <tr>
       <td><code>needs_attention</code></td>
-      <td><span style="color: #9a3412; background: #fff7ed">◆!</span> needs you</td>
-      <td>◆! needs you</td>
-      <td>attention</td>
+      <td><span style="color: #334155">summarized</span></td>
+      <td>summarized</td>
+      <td>ordinary</td>
     </tr>
     <tr>
       <td><code>ineligible</code></td>
@@ -82,8 +82,8 @@ The scopes are deliberately different: Session-history events are repeatable, ti
 
 There is one user-message category, and every selected user message uses the same visual role. The smaller solid continuation dot means work continues. The larger solid stop circle marks a reported response boundary, not verified completion. Supporting intervals paint first, then continuations, stops and errors, and user messages last. Selection adds a halo without replacing the canonical mark.
 
-Summary reasons such as `decision`, `blocker`, or `unfinished` are secondary text, never new colors or shapes. Summary prose uses normal body styling. Attention is the only Summary result with a high-salience mark or optional sound. Finished has no green, checkmark, or success treatment because it is an appearance-level Session assessment, not proof that a Task, Project, tool run, or delivery succeeded. Error is diagnostic and never produces the attention sound.
+Summary reasons such as `decision`, `blocker`, or `unfinished` are secondary text, never new colors or shapes. Summary prose uses normal body styling. No Summary result has a high-salience mark, color, or sound. `needs_attention` is an ordinary result: show the Summary text, not an attention label. Owner attention comes from other sources, such as Arc asks and runtime facts. Finished has no green, checkmark, or success treatment because it is an appearance-level Session assessment, not proof that a Task, Project, tool run, or delivery succeeded. Error is diagnostic.
 
-Synchronization and applicability qualify a result; they are not additional statuses. Append `· source pending` when applicable, expose detailed sync/applicability in an inspector, and withhold the attention mark and sound until readable native evidence confirms a current result. Never publish `syncing` as a Summary status. Consumers support only the current package projection and don't translate unsupported receipt shapes into visual meaning.
+Synchronization and applicability qualify a result; they are not additional statuses. Append `· source pending` when applicable, expose detailed sync/applicability in an inspector. Never publish `syncing` as a Summary status. Consumers support only the current package projection and don't translate unsupported receipt shapes into visual meaning.
 
 Every mark has an accessible text label. Do not rely on color, hover, or sound. A muted monochrome snapshot may use lighter weight or terminal `dim`, but its text must remain readable and meet WCAG 2.2 AA where applicable. Terminal renderers preserve the monochrome mark and label with the closest theme-safe ANSI treatment. Consumers import the package mapping rather than inventing another one, cite this file for perceptual intent, and keep application layout local.

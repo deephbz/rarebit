@@ -1,6 +1,7 @@
 // Executable projection of the perceptual contract in ../VISUAL-LANGUAGE.md.
 // Consumers own layout and renderer-specific styling; this module owns semantic
-// marks, labels, tones, and source-pending attention gating.
+// marks, labels, tones, and the source-pending qualifier. No Summary status has an
+// attention presentation: `needs_attention` reads as an ordinary Summary.
 
 export const RAREBIT_EVENT_PRESENTATION = Object.freeze({
   user_message: Object.freeze({
@@ -43,10 +44,10 @@ export const RAREBIT_SUMMARY_PRESENTATION = Object.freeze({
     salience: "ordinary",
   }),
   needs_attention: Object.freeze({
-    mark: "◆!",
-    label: "needs you",
-    tone: "attention",
-    salience: "attention",
+    mark: null,
+    label: "summarized",
+    tone: "neutral",
+    salience: "ordinary",
   }),
   ineligible: Object.freeze({
     mark: null,
@@ -101,10 +102,5 @@ export function rarebitSummaryPresentation(
     ...presentation,
     mark: null,
     label: `${presentation.label} · source pending`,
-    tone: presentation.tone === "attention" ? "neutral" : presentation.tone,
-    salience:
-      presentation.salience === "attention"
-        ? "ordinary"
-        : presentation.salience,
   });
 }
