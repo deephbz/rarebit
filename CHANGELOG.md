@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-10-29
 
 - Retire the attention presentation of the `needs_attention` Summary status.
   It now reads as an ordinary Summary: no `◆!` mark, no "needs you" label, and
