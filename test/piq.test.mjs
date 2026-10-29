@@ -1,3 +1,4 @@
+import "./home.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";

@@ -1,3 +1,4 @@
+import "./home.mjs";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
